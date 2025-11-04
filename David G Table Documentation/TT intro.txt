@@ -1,0 +1,25 @@
+TT intro
+The load centers on the table, going clockwise from the Ferris wheel, 
+1. Industrial north: including everything up to the helipads and supply depot. (Not connected to pi)
+2. Stoplight (power for the district, not light patterns)
+3. Police
+4. Fire: fire station, University, Hospital
+5. Housing district: Bank through the houses (Pi connection not working: plugged in directly)
+6. Business district (Not connected to pi, also needs the lighting connectors coming soon)
+7. Power (not connected to pi, needs wiring for other windmills)
+
+There are four raspberry pies with similar IP addresses in the rack. The pi marked 192.168.1.81 controls the six load centers, the power running through the transmission, and the power distribution center. In layman terms, pi 81 controls each of the lights connected to a computer, and the power supply to them all. The pi with address 192.168.1.82 controls the emergency power, including a battery and a generator, for the hospital (located on the Ipad, no real life effect). Neither this computer, nor 192.168.1.83 are connected to physical components, though the Ipad's scada is running on computer 80, which looks like a router. Pi 192.168.1.98 controls the traffic light. When deprived of power, the stoplight will blink red, no matter the coil settings. The new pi must be configured to "see" the DIST variable on the pi running substation. The file has not been located on pi 98 which does this.
+
+Each of the load centers in the .st file for 81 correspond to input coils (labelled "IX" for modbus), which are affected by their district's output coil (labelled QX for modbus). the input coils allow reading by the simulation, the ipad, and other pies. It is unknown why they have the ability to turn off other coils. (Hypothesis: they use the same lines, and cannot be activated while the other coil is on, so they turn off the other coil.)
+
+Physical wiring:
+
+"EVERYTHING USES AC CURRENT. ONLY HANDLE WIRING UNDER PROFESSIONAL SUPERVISION
+THIS APPLIES EVEN WHEN THE POWER IS OFF"
+
+All lights connected to the pi's do so with dpdt relays (takes 1 input and make 2 outputs, available at two isolated places. In layman's terms, we have current amplifiers to light leds). Each relay board (there are three in the rack, four stored with the new pies), has four switches, with connected LEDs. The diagram of which relays are connected where is on the city map. It is unclear whether the three unconnected relays are plugged into anything. Their lights do not turn on, but presumably they are connected to coils through the inputs.
+	The black/red screw termial is a power source for the pis. You can tell when a pi is drawing power when the lights on the pi turn on, and in rare cases, when its connected relays turn on (leds activate and you can hear the switch flipping)
+	The USBs MUST be grounded, the relays MUST be grounded, and the pi MUST be grounded twice: once to the ground and once to the relay. Connect all ground wires before touching live wires. Refer to the diagram on how to connect all wires. Make sure to disconnect live wires before ground wires. 
+
+If there are any questions, or things I have not mentioned, please email me at dmgonzal94@gmail.com
+Please actually do this. While I cannot promise I know the answer, I have worked on this quite a bit.

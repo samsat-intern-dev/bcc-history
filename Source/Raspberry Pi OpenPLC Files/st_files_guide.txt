@@ -1,0 +1,25 @@
+.st files are the files running on the 4 Raspberry Pi on the table through the OpenPlC application.
+
+Raspberry Pi 192.168.1.81
+    *uses 107890.st
+        -substation program
+    *controls substaion for first district (Houses -> Theatre; Bank -> Fire; Police)
+    *contains required transmission and distribution coils, along with required coil for traffic light
+
+Raspberry Pi 192.168.1.82
+    *uses 406635.st
+        *PROGRAM PLC_2_3_4
+    *controls hospital generator
+
+Raspberry Pi 192.168.1.83
+    *uses 692121.st
+        -PROGRAM PLC_2_3_4
+    *controls police/fire generator
+
+Raspberry Pi 192.168.1.98
+    *uses 706957.st
+        -PROGRAM traffic_light
+    *controls traffic light functionality
+    *requires coils from 192.168.1.81
+    
+    
