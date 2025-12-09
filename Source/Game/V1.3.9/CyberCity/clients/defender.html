@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberCity Battle - Defender</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;700;900&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;700;900&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+</head>
+
+<body>
+    <div class="grid-background"></div>
+
+    <div class="header">
+        <h1 class="title">Battle for Cyber City</h1>
+        <div class="role">DEFENDER</div>
+        <div class="header-controls">
+            <div class="budget">Budget: $<span id="budget">100000</span></div>
+            <button class="exit-btn" onclick="exitGame()">EXIT</button>
+        </div>
+    </div>
+
+    <!-- System notification banner -->
+    <div id="systemBanner" class="system-banner"></div>
+
+    <!-- Opponent turn blocker -->
+    <div id="turnBlocker" class="turn-blocker">
+        <div class="turn-blocker-content">
+            <h2>OPPONENT'S TURN</h2>
+            <p>Please wait while your opponent completes their move...</p>
+        </div>
+    </div>
+
+    <div class="turn-status" id="turnStatus">
+        <span id="turnStatusText">YOUR TURN</span>
+        <div class="turn-timer" id="turnTimer">
+            <span id="turnTimeRemaining">3:00</span>
+        </div>
+        <button class="skip-btn-header" onclick="skipTurn()" id="skipBtn">SKIP TURN</button>
+    </div>
+
+    <div class="game-container">
+        <div class="actions-section">
+            <h2 class="actions-title">ACTIONS</h2>
+            <div class="actions-container defender-actions">
+                <button class="action-btn defender" onclick="selectAction('Firewall', this)">
+                    <div class="action-cost">$9,000</div>
+                    <div class="action-name">Firewall</div>
+                    <div class="action-desc">Blocks unauthorized access and reduces risk at the chosen location.</div>
+                </button>
+                <button class="action-btn defender" onclick="selectAction('Virus Protection', this)">
+                    <div class="action-cost">$11,000</div>
+                    <div class="action-name">Virus Protection</div>
+                    <div class="action-desc">Deploys antivirus defenses to mitigate virus-based compromises.</div>
+                </button>
+                <button class="action-btn defender" onclick="selectAction('Intrusion Detection', this)">
+                    <div class="action-cost">$22,000</div>
+                    <div class="action-name">Intrusion Detection</div>
+                    <div class="action-desc">Detects and disrupts intrusions; can assist on compromised sites (cooldown
+                        applies).</div>
+                </button>
+                <button class="action-btn defender" onclick="selectAction('User Training', this)">
+                    <div class="action-cost">$10,000</div>
+                    <div class="action-name">User Training</div>
+                    <div class="action-desc">Educates users to reduce social engineering and phishing success.</div>
+                </button>
+            </div>
+        </div>
+
+        <div class="locations-section">
+            <h2 class="locations-title">LOCATIONS</h2>
+            <div class="locations-grid" id="locationsGrid">
+                <!-- Locations will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Fixed confirm action button -->
+    <button class="confirm-btn" onclick="confirmAction()" id="confirmBtn">CONFIRM<br>ACTION</button>
+
+    <div class="message-log" id="messageLog">
+        <div>Ready up to begin the battle...</div>
+    </div>
+
+
+    <!-- Instructions Modal -->
+    <div id="instructionsModal" class="modal-overlay">
+        <div class="instructions-content">
+            <div class="instructions-timer-box" id="instructionsTimer">1:30</div>
+            <h2>Welcome Defender!</h2>
+            <p>You are the <strong>Defender</strong>, and your mission is to protect the city from the
+                Hacker's cyber attacks!</p>
+            <p>Use your defensive arsenal - Firewall, Virus Protection, Intrusion Detection,
+                and User Training - to safeguard the city's infrastructure.</p>
+            <p>Your goal is to keep locations below 75% compromise (they remain protected) and prevent the Hacker from
+                capturing them.</p>
+            <p>The game has 10 rounds with 2 turns each. <strong>You go first to set up defenses</strong>
+                before the Hacker attacks!</p>
+            <p>Each location is worth 1 point, except Lackland (worth 2 points). Protect more locations than the
+                Hacker compromises to win!</p>
+            <button class="modal-btn" onclick="closeInstructions()">I'M READY</button>
+        </div>
+    </div>
+
+
+    <!-- Action Animation Overlay -->
+    <div id="animation-overlay" class="overlay">
+        <img id="action-image" class="action-image" src="">
+    </div>
+
+    <!-- Game Over Modal -->
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal-overlay">
+        <div class="modal">
+            <h2 id="gameOverTitle">Game Over</h2>
+            <p id="gameOverMessage">Final Score: Hacker 0 - Defender 0</p>
+            <button class="modal-btn" onclick="restartGame()">RESTART GAME</button>
+        </div>
+    </div>
+
+    <!-- Waiting Overlay -->
+    <div id="waitingOverlay" class="modal-overlay">
+        <div class="modal">
+            <h2>WAITING FOR OPPONENT</h2>
+            <p>Your opponent is reviewing the instructions...</p>
+            <div class="waiting-timer-box" id="waitingTimer"></div>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let selectedAction = null;
+        let selectedLocation = null;
+        let isMyTurn = true; // Defender starts first
+        let isReady = false;
+        let gameStarted = false;
+
+        const locations = [
+            'Business', 'Hospital', 'Fire/Police', 'Industrial',
+            'University', 'Housing', 'Lackland', 'Traffic Lights'
+        ];
+
+        // Timer variables
+        let instructionsTimerInterval = null;
+        let instructionsTimeRemaining = 90; // 1 minute 30 seconds
+        let turnTimerInterval = null;
+        let autoRestartTimerInterval = null;
+        let autoRestartTimeRemaining = 30;
+
+        let turnTimeRemaining = 180; // 3 minutes
+        let playerBudget = 100000;
+        let intrusionCooldown = 0;
+
+        // Initialize the game
+        function initGame() {
+            socket.emit('login', 'Defender');
+            createLocationCards();
+            showInstructions();
+        }
+
+        // Create location cards
+        function createLocationCards() {
+            const grid = document.getElementById('locationsGrid');
+            grid.innerHTML = '';
+
+            locations.forEach(location => {
+                const card = document.createElement('div');
+                card.className = 'location-card';
+                card.onclick = function () { selectLocation(location, this); };
+
+                // Determine point value
+                const pointValue = location === 'Lackland' ? 2 : 1;
+                const pointBadge = location === 'Lackland'
+                    ? '<div class="point-badge premium">⭐ 2 PTS</div>'
+                    : '<div class="point-badge">1 PT</div>';
+
+                card.innerHTML = `
+                    ${pointBadge}
+                    <div class="location-name">${location}</div>
+                    <div class="compromise-info" id="${location}-info">Compromised: 0%</div>
+                    <div class="compromise-bar">
+                        <div class="compromise-fill" id="${location}-bar"></div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // readyUp function removed - instructions flow handles ready state
+
+
+        // Instructions functions
+        function showInstructions() {
+            document.getElementById('instructionsModal').style.display = 'flex';
+            startInstructionsTimer();
+        }
+
+        function closeInstructions() {
+            // Clear instructions timer to prevent timeout race condition
+            if (instructionsTimerInterval) {
+                clearInterval(instructionsTimerInterval);
+                instructionsTimerInterval = null;
+            }
+
+            document.getElementById('instructionsModal').style.display = 'none';
+            socket.emit('instructions_closed', { side: 'Defender' });
+
+            // Show waiting overlay until game starts
+            document.getElementById('waitingOverlay').style.display = 'flex';
+        }
+
+        function startInstructionsTimer() {
+            instructionsTimeRemaining = 90; // 1 minute 30 seconds
+            updateInstructionsTimer();
+
+            instructionsTimerInterval = setInterval(() => {
+                instructionsTimeRemaining--;
+                updateInstructionsTimer();
+
+                if (instructionsTimeRemaining <= 0) {
+                    clearInterval(instructionsTimerInterval);
+                    instructionsTimerInterval = null;
+                    socket.emit('instructions_timeout', { side: 'Defender' });
+                    window.location.href = '/';
+                }
+            }, 1000);
+        }
+
+        function updateInstructionsTimer() {
+            const timer = document.getElementById('instructionsTimer');
+            const minutes = Math.floor(instructionsTimeRemaining / 60);
+            const seconds = instructionsTimeRemaining % 60;
+            timer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            timer.classList.remove('warning', 'critical');
+            if (instructionsTimeRemaining <= 15) {
+                timer.classList.add('critical');
+            } else if (instructionsTimeRemaining <= 30) {
+                timer.classList.add('warning');
+            }
+
+            // Update waiting timer if it exists
+            const waitingTimer = document.getElementById('waitingTimer');
+            if (waitingTimer) {
+                waitingTimer.textContent = timer.textContent;
+                waitingTimer.className = 'waiting-timer-box';
+                if (instructionsTimeRemaining <= 15) {
+                    waitingTimer.classList.add('critical');
+                } else if (instructionsTimeRemaining <= 30) {
+                    waitingTimer.classList.add('warning');
+                }
+            }
+        }
+
+
+        // Turn timer functions
+        function showTurnTimer() {
+            // Clear any existing interval first to prevent double-counting
+            if (turnTimerInterval) {
+                clearInterval(turnTimerInterval);
+                turnTimerInterval = null;
+            }
+
+            document.getElementById('turnTimer').style.display = 'block';
+            turnTimeRemaining = 180; // 3 minutes
+            updateTurnTimer();
+
+            turnTimerInterval = setInterval(() => {
+                if (turnTimeRemaining > 0) {
+                    turnTimeRemaining--;
+                    updateTurnTimer();
+                }
+
+                if (turnTimeRemaining <= 0) {
+                    clearInterval(turnTimerInterval);
+                    turnTimerInterval = null;
+                    socket.emit('turn_timeout', { side: 'Defender' });
+                    // Redirect immediately - server will handle kicking both players
+                    window.location.href = '/';
+                }
+            }, 1000);
+        }
+
+        function updateTurnTimer() {
+            const minutes = Math.floor(turnTimeRemaining / 60);
+            const seconds = turnTimeRemaining % 60;
+            document.getElementById('turnTimeRemaining').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            const timer = document.getElementById('turnTimer');
+            timer.classList.remove('critical');
+            if (turnTimeRemaining <= 30) {
+                timer.classList.add('critical');
+            }
+        }
+
+        function hideTurnTimer() {
+            document.getElementById('turnTimer').style.display = 'none';
+            if (turnTimerInterval) {
+                clearInterval(turnTimerInterval);
+                turnTimerInterval = null;
+            }
+        }
+
+        // Game action functions
+        function selectAction(action, btnElement) {
+            console.log('selectAction called with:', action);
+            console.log('gameStarted:', gameStarted, 'isMyTurn:', isMyTurn);
+
+            const actionCosts = {
+                'Firewall': 9000,
+                'Virus Protection': 11000,
+                'Intrusion Detection': 22000,
+                'User Training': 10000
+            };
+
+            const cost = actionCosts[action];
+            if (cost && playerBudget < cost) {
+                console.log('Insufficient funds');
+                alert(`Insufficient Funds!\n\n${action} costs $${cost.toLocaleString()} but you only have $${playerBudget.toLocaleString()}.\n\nChoose a cheaper action or skip your turn.`);
+                return;
+            }
+
+            // Check for Intrusion Detection cooldown
+            if (action === 'Intrusion Detection' && intrusionCooldown > 0) {
+                console.log('Intrusion Detection on cooldown');
+                alert(`Intrusion Detection on Cooldown!\n\nIntrusion Detection is still cooling down for ${intrusionCooldown} more turn(s).\n\nPlease choose a different action.`);
+                return;
+            }
+
+            // Only check gameStarted at the very beginning, not during gameplay
+            if (!gameStarted) {
+                console.log('Game not started yet');
+                showBanner('Wait for both players to be ready before taking actions.', 'error');
+                return;
+            }
+
+            if (!isMyTurn) {
+                console.log('Not your turn');
+                showBanner('Wait for your turn.', 'error');
+                return;
+            }
+
+            console.log('Action selected successfully:', action);
+            selectedAction = action;
+            socket.emit('action', { side: 'Defender', action });
+
+            // Update UI
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            if (btnElement) {
+                btnElement.classList.add('selected');
+            } else if (event && event.target) {
+                // Fallback if btnElement is missing but event exists (shouldn't happen with new calls)
+                event.target.closest('.action-btn').classList.add('selected');
+            }
+
+            addMessage(`Selected action: ${action}`);
+        }
+
+        function selectLocation(location, cardElement) {
+            if (!gameStarted || !isMyTurn) {
+                showBanner('Wait for both players to click \'I\'M READY\' before taking actions.', 'error');
+                return;
+            }
+
+            selectedLocation = location;
+            socket.emit('location', { side: 'Defender', location });
+
+            // Update UI
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            if (cardElement) {
+                cardElement.classList.add('selected');
+            } else if (event && event.target) {
+                event.target.closest('.location-card').classList.add('selected');
+            }
+
+            addMessage(`Selected location: ${location}`);
+        }
+
+        function playActionAnimation(action) {
+            const overlay = document.getElementById('animation-overlay');
+            const actionImage = document.getElementById('action-image');
+
+            // Set image source based on action type - keep spaces and lowercase
+            const imageName = action.toLowerCase();
+            actionImage.src = `defender_actions/defender_${imageName}.jpeg`;
+
+            // Display overlay and apply animation sequence
+            overlay.style.display = 'flex';
+
+            // Hide overlay after animation completes
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 2300); // Match total animation duration
+        }
+
+        function confirmAction() {
+            if (!gameStarted) {
+                showBanner('Wait for both players to click \'I\'M READY\' before taking actions.', 'error');
+                return;
+            }
+
+            if (!selectedAction || !selectedLocation || !isMyTurn) return;
+
+            socket.emit('confirm_action', { side: 'Defender' });
+            addMessage(`Executing ${selectedAction} on ${selectedLocation}...`);
+
+            // Play the action animation
+            playActionAnimation(selectedAction);
+
+            resetSelections();
+        }
+
+        function skipTurn() {
+            if (!gameStarted || !isMyTurn) {
+                showBanner('Wait for both players to click \'I\'M READY\' before taking actions.', 'error');
+                return;
+            }
+            socket.emit('skip_turn', { side: 'Defender' });
+            addMessage('Skipped turn');
+            resetSelections();
+        }
+
+        function resetSelections() {
+            selectedAction = null;
+            selectedLocation = null;
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+        }
+
+        function addMessage(message) {
+            const log = document.getElementById('messageLog');
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            log.appendChild(messageDiv);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function showPopup(message) {
+            const popup = document.createElement('div');
+            popup.className = 'game-popup';
+            popup.textContent = message;
+            document.body.appendChild(popup);
+
+            // Remove after 4 seconds
+            setTimeout(() => {
+                popup.style.animation = 'slideOutRight 0.5s ease-in forwards';
+                setTimeout(() => {
+                    popup.remove();
+                }, 500);
+            }, 4000);
+        }
+
+        function updateTurnStatus(turn) {
+            const statusElement = document.getElementById('turnStatusText');
+            const skipBtn = document.getElementById('skipBtn');
+            const blocker = document.getElementById('turnBlocker');
+            const headerEl = document.querySelector('.header');
+            const turnStatusBar = document.getElementById('turnStatus');
+
+            // Ensure blocker top aligns below header so EXIT remains accessible
+            if (headerEl && blocker) {
+                blocker.style.top = (headerEl.offsetTop + headerEl.offsetHeight) + 'px';
+            }
+
+            isMyTurn = (turn === 'Defender');
+
+            if (isMyTurn) {
+                if (statusElement) statusElement.textContent = 'YOUR TURN';
+                if (turnStatusBar) {
+                    turnStatusBar.classList.remove('opponent-turn');
+                    turnStatusBar.classList.add('your-turn');
+                }
+                if (skipBtn) skipBtn.classList.remove('hidden');
+                if (blocker) {
+                    blocker.classList.remove('active');
+                    blocker.classList.add('hidden');
+                    blocker.style.display = 'none';
+                }
+                showTurnTimer();
+                showTurnTimer();
+                // addMessage('Your turn!'); // Removed to prevent spam
+            } else {
+                if (statusElement) statusElement.textContent = "OPPONENT'S TURN";
+                if (turnStatusBar) {
+                    turnStatusBar.classList.remove('your-turn');
+                    turnStatusBar.classList.add('opponent-turn');
+                }
+                if (skipBtn) skipBtn.classList.add('hidden');
+                if (blocker) {
+                    blocker.classList.remove('hidden');
+                    blocker.classList.add('active');
+                    blocker.style.display = 'flex';
+                }
+                hideTurnTimer();
+                hideTurnTimer();
+                // addMessage("Opponent's turn. Please wait."); // Removed to prevent spam
+            }
+        }
+        function updateLocations(locationData) {
+            for (const [location, data] of Object.entries(locationData)) {
+                const infoElement = document.getElementById(`${location}-info`);
+                const barElement = document.getElementById(`${location}-bar`);
+
+                if (infoElement && barElement) {
+                    const compromise = data.compromise || 0;
+                    infoElement.textContent = `Compromised: ${compromise}%`;
+                    barElement.style.width = `${compromise}%`;
+
+                    // Color coding
+                    if (compromise >= 75) {
+                        barElement.style.background = '#ff0000';
+                    } else if (compromise >= 50) {
+                        barElement.style.background = '#ff9800';
+                    } else {
+                        barElement.style.background = '#00ff00';
+                    }
+                }
+            }
+        }
+
+        function showGameOver(winner, hackerScore, defenderScore) {
+            const modal = document.getElementById('gameOverModal');
+            const title = document.getElementById('gameOverTitle');
+            const message = document.getElementById('gameOverMessage');
+
+            if (winner === 'Defender') {
+                title.textContent = 'VICTORY!';
+                title.style.color = '#00ff00';
+            } else {
+                title.textContent = 'DEFEAT!';
+                title.style.color = '#ff0000';
+            }
+
+            message.textContent = `Final Score: Hacker ${hackerScore} - Defender ${defenderScore}`;
+
+            // Add auto-restart timer display
+            const timerDisplay = document.createElement('p');
+            timerDisplay.id = 'autoRestartTimer';
+            timerDisplay.style.marginTop = '10px';
+            timerDisplay.style.fontSize = '0.9em';
+            timerDisplay.style.color = '#aaaaaa';
+            message.appendChild(timerDisplay);
+
+            // Start auto-restart timer
+            autoRestartTimeRemaining = 30;
+            updateAutoRestartTimer();
+
+            if (autoRestartTimerInterval) clearInterval(autoRestartTimerInterval);
+            autoRestartTimerInterval = setInterval(() => {
+                autoRestartTimeRemaining--;
+                updateAutoRestartTimer();
+
+                if (autoRestartTimeRemaining <= 0) {
+                    clearInterval(autoRestartTimerInterval);
+                    exitGame();
+                }
+            }, 1000);
+
+            // Hide any turn blocker/indicator and timers on game over
+            hideTurnTimer();
+            const blocker = document.getElementById('turnBlocker');
+            if (blocker) blocker.style.display = 'none';
+            const statusElement = document.getElementById('turnStatus');
+            if (statusElement) {
+                statusElement.classList.remove('waiting');
+                statusElement.textContent = 'GAME OVER';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function updateAutoRestartTimer() {
+            const timerDisplay = document.getElementById('autoRestartTimer');
+            if (timerDisplay) {
+                timerDisplay.textContent = `Game will auto-restart in ${autoRestartTimeRemaining}s`;
+            }
+        }
+
+        function exitGame() {
+            if (autoRestartTimerInterval) clearInterval(autoRestartTimerInterval);
+            socket.emit('exit_game');
+            window.location.href = '/';
+        }
+
+        function restartGame() {
+            if (autoRestartTimerInterval) clearInterval(autoRestartTimerInterval);
+            socket.emit('restart_game', { clientType: 'Defender' });
+        }
+
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('defender_game_message', (message) => {
+            addMessage(message);
+            // Only show popup for specific important messages
+            if (message.includes('Your turn') ||
+                message.includes("Opponent's turn") ||
+                message.includes('cooldown') ||
+                message.includes('SETUP ROUND') ||
+                message.includes('FINAL ROUND') ||
+                message.includes('lost') ||
+                message.includes('compromised')) {
+                showPopup(message);
+            }
+        });
+
+        socket.on('budget_update', ({ defenderBudget }) => {
+            playerBudget = defenderBudget;
+            const budgetElement = document.getElementById('budget');
+            if (budgetElement) {
+                budgetElement.textContent = defenderBudget;
+            }
+        });
+
+        socket.on('turn_update', (data) => {
+            // Hide waiting overlay when first turn update comes in
+            const overlay = document.getElementById('waitingOverlay');
+            if (overlay) overlay.style.display = 'none';
+
+            // Mark game as started when we receive turn updates
+            gameStarted = true;
+
+            const isMyTurn = data.turn === 'Defender';
+            updateTurnStatus(data.turn); // Call existing function to update UI
+        });
+
+        socket.on('game_started_confirmed', () => {
+            const overlay = document.getElementById('waitingOverlay');
+            if (overlay) overlay.style.display = 'none';
+            gameStarted = true;
+        });
+
+        socket.on('start_game', () => {
+            gameStarted = true;
+            // Ensure waiting overlay is hidden when game starts
+            const overlay = document.getElementById('waitingOverlay');
+            if (overlay) overlay.style.display = 'none';
+            const rb = document.getElementById('readyBtn');
+            if (rb) rb.classList.add('hidden');
+        });
+
+        socket.on('turn_update', (data) => {
+            // Handle turn update
+            updateTurnStatus(data.turn);
+            updateTurnTimer();
+        });
+
+        socket.on('notification', ({ message, type }) => {
+            // Show notification popup for important game events
+            showPopup(message);
+            addMessage(message);
+        });
+
+        socket.on('game_over', ({ winner, hackerScore, defenderScore }) => {
+            showGameOver(winner, hackerScore, defenderScore);
+        });
+
+        socket.on('update_compromise', (locationData) => {
+            updateLocations(locationData);
+        });
+
+        socket.on('game_over', ({ winner, hackerScore, defenderScore }) => {
+            showGameOver(winner, hackerScore, defenderScore);
+        });
+
+        socket.on('hide_ready_buttons', () => {
+            // Legacy handler - no longer needed as ready button doesn't exist
+            // Instructions are shown automatically on page load via initGame()
+        });
+
+        socket.on('redirect', ({ url }) => {
+            window.location.href = url;
+        });
+
+        socket.on('redirect_to_intro', () => {
+            window.location.href = '/';
+        });
+
+
+
+        // Handle countdown events from server
+        socket.on('ready_up_countdown', ({ timeRemaining }) => {
+            // Update ready-up countdown display if needed
+            console.log(`Ready-up countdown: ${timeRemaining} seconds remaining`);
+        });
+
+        socket.on('ready_up_countdown_start', ({ timeRemaining }) => {
+            console.log(`Ready-up countdown started: ${timeRemaining} seconds`);
+        });
+
+        socket.on('instructions_countdown', ({ timeRemaining }) => {
+
+            // Update instructions timer from server
+            instructionsTimeRemaining = timeRemaining;
+            updateInstructionsTimer();
+        });
+
+        socket.on('ready_up_timeout', ({ message }) => {
+            showBanner(message, 'error');
+            setTimeout(() => { window.location.href = '/'; }, 1000);
+        });
+
+        socket.on('instructions_timeout', ({ message }) => {
+            showBanner(message, 'error');
+            setTimeout(() => { window.location.href = '/'; }, 1000);
+        });
+
+        socket.on('turn_timeout', ({ message }) => {
+            showBanner(message, 'error');
+            setTimeout(() => { window.location.href = '/'; }, 1000);
+        });
+
+        // Integrated banner notifications
+        function showBanner(message, type = 'info') {
+            const banner = document.getElementById('systemBanner');
+            if (!banner) return;
+            banner.classList.remove('info', 'error');
+            banner.classList.add(type);
+            banner.textContent = message;
+            banner.style.display = 'block';
+            clearTimeout(window.__bannerTimeout);
+            window.__bannerTimeout = setTimeout(() => {
+                banner.style.display = 'none';
+            }, 4000);
+        }
+
+        // Keep the turn blocker aligned under the header
+        function alignTurnBlocker() {
+            const blocker = document.getElementById('turnBlocker');
+            const headerEl = document.querySelector('.header');
+            if (blocker && headerEl) {
+                blocker.style.top = (headerEl.offsetTop + headerEl.offsetHeight) + 'px';
+            }
+        }
+        window.addEventListener('resize', alignTurnBlocker);
+        window.addEventListener('load', alignTurnBlocker);
+
+        // On tab/window close, exit the game for all players
+        function attemptGroupExit() {
+            try { socket.emit('exit_game'); } catch (e) { }
+            try { fetch('/restart', { method: 'GET', keepalive: true }); } catch (e) { }
+        }
+        window.addEventListener('beforeunload', attemptGroupExit);
+        window.addEventListener('pagehide', attemptGroupExit);
+
+        // Initialize game when page loads
+        initGame();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberCity Battle</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;700;900&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="grid-background"></div>
+
+    <!-- System notification banner -->
+    <div id="systemBanner" class="system-banner"></div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen active">
+        <img src="start.png" alt="Start" onclick="showCharacterSelect()">
+    </div>
+
+    <!-- Character Selection Screen -->
+    <div id="character-select" class="screen">
+        <h1>Choose Your Side</h1>
+        <div id="defender" data-side="Defender" onclick="selectCharacter('Defender')">
+            <span>Defender</span>
+        </div>
+        <div id="hacker" data-side="Hacker" onclick="selectCharacter('Hacker')">
+            <span>Hacker</span>
+        </div>
+    </div>
+
+    <!-- Ready Up Screen -->
+    <div id="ready-screen" class="screen">
+        <h2 class="ready-title">BATTLE STATIONS</h2>
+        <div class="ready-info">
+            <p>Both players connected successfully.</p>
+            <p>Role: <span id="selected-role" style="color: #00ffea; font-weight: bold;"></span></p>
+            <p>When both players are ready, the battle will commence!</p>
+        </div>
+        <div class="ready-buttons">
+            <button class="back-button" onclick="goBack('character')">← CHANGE ROLE</button>
+            <button class="rules-button" onclick="showRules()">RULES</button>
+        </div>
+    </div>
+
+    <!-- Turn counter -->
+    <div id="turn-counter" class="turn-counter" style="display: none;">
+        Turn: <span id="turn-number">1</span>
+    </div>
+
+    <!-- Status indicator -->
+    <div id="status-indicator" class="status-indicator" style="display: none;">
+        <span id="status-text">Waiting...</span>
+    </div>
+
+
+
+    <!-- Selection timeout timer -->
+    <div id="selection-timer" class="selection-timer" style="display: none;">
+        <div>Select a role in: <span id="selection-time">2:00</span></div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="modal-overlay">
+        <div class="modal">
+            <h2>CYBERCITY BATTLE RULES</h2>
+            <p><strong>Objective:</strong> Defenders protect the city while Hackers try to compromise locations.</p>
+            <p><strong>Victory Conditions:</strong> Control more locations than your opponent when the game ends.</p>
+            <p><strong>Game Flow:</strong></p>
+            <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+                <li>10 rounds total, 2 turns each</li>
+                <li>Defender gets first 2 turns to set up defenses</li>
+                <li>Hacker gets final round advantage</li>
+                <li>Each location worth 1 point (Lackland worth 2 points)</li>
+            </ul>
+            <p><strong>Defender Actions:</strong> Firewall, Virus Protection, Intrusion Detection, User Training</p>
+            <p><strong>Hacker Actions:</strong> Phishing, Virus, Malware</p>
+            <p><strong>Compromise Levels:</strong> 75%+ = Compromised, 100% = Permanently lost</p>
+            <button class="close-button" onclick="closeRules()">CLOSE</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let selectedSide = null;
+        let gameStarted = false;
+        let isReady = false;
+        let selectionTimer = null;
+        let selectionTimeRemaining = 120; // 2 minutes
+
+        // Screen management
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function showCharacterSelect() {
+            showScreen('character-select');
+            // Show selection timer immediately
+            const timer = document.getElementById('selection-timer');
+            timer.style.display = 'block';
+            // Emit to server to start the initial selection timer
+            socket.emit('start_initial_selection');
+        }
+
+        function goBack(screen) {
+            if (screen === 'start') {
+                // Reset game state when going back to start
+                selectedSide = null;
+                isReady = false;
+                stopSelectionTimer();
+                showScreen('start-screen');
+            } else if (screen === 'character') {
+                // Release current side selection
+                if (selectedSide) {
+                    socket.emit('release_side', selectedSide);
+                    selectedSide = null;
+                }
+                isReady = false;
+                showScreen('character-select');
+                // Show selection timer immediately
+                const timer = document.getElementById('selection-timer');
+                timer.style.display = 'block';
+                // Emit to server to start the initial selection timer
+                socket.emit('start_initial_selection');
+                // Re-enable character cards
+                document.getElementById('defender').classList.remove('role-taken');
+                document.getElementById('hacker').classList.remove('role-taken');
+            }
+        }
+
+        function selectCharacter(side) {
+            const card = document.getElementById(side.toLowerCase());
+            if (card && card.classList.contains('role-taken')) return;
+
+            selectedSide = side;
+            socket.emit('choose_side', side);
+
+            // Update selected role display
+            document.getElementById('selected-role').textContent = side.toUpperCase();
+            document.getElementById('selected-role').style.color = side === 'Defender' ? '#0099ff' : '#ff0040';
+
+            stopSelectionTimer();
+            showScreen('ready-screen');
+        }
+
+        function readyUp() {
+            if (!selectedSide || isReady) return;
+
+            isReady = true;
+            const btn = document.getElementById('ready-btn');
+            btn.textContent = 'READY!';
+            btn.classList.add('ready');
+            btn.disabled = true;
+
+            socket.emit('ready_up', { side: selectedSide });
+        }
+
+        function showRules() {
+            document.getElementById('rules-modal').style.display = 'flex';
+        }
+
+        function closeRules() {
+            document.getElementById('rules-modal').style.display = 'none';
+        }
+
+        // Selection timer functions
+        function startSelectionTimer() {
+            stopSelectionTimer();
+            selectionTimeRemaining = 120; // 2 minutes
+            const timer = document.getElementById('selection-timer');
+            timer.style.display = 'block';
+            updateSelectionTimer();
+
+            selectionTimer = setInterval(() => {
+                selectionTimeRemaining--;
+                updateSelectionTimer();
+
+                if (selectionTimeRemaining <= 0) {
+                    clearInterval(selectionTimer);
+                    selectionTimer = null;
+                    // Redirect to home page when timer expires
+                    window.location.href = '/';
+                }
+            }, 1000);
+        }
+
+        function updateSelectionTimer() {
+            const timer = document.getElementById('selection-timer');
+            const timeDisplay = document.getElementById('selection-time');
+            const minutes = Math.floor(selectionTimeRemaining / 60);
+            const seconds = selectionTimeRemaining % 60;
+
+            // Ensure timer is visible
+            timer.style.display = 'block';
+
+            // Update just the time display
+            if (selectionTimeRemaining > 60) {
+                timeDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            } else if (selectionTimeRemaining > 0) {
+                timeDisplay.textContent = `${selectionTimeRemaining}s`;
+            } else {
+                timeDisplay.textContent = '0s';
+            }
+
+            // Add critical styling when under 30 seconds
+            if (selectionTimeRemaining <= 30) {
+                timer.classList.add('critical');
+            } else {
+                timer.classList.remove('critical');
+            }
+        }
+
+        function stopSelectionTimer() {
+            if (selectionTimer) {
+                clearInterval(selectionTimer);
+                selectionTimer = null;
+            }
+            document.getElementById('selection-timer').style.display = 'none';
+        }
+
+        // Socket event handlers
+        socket.on('side_taken', ({ side }) => {
+            const card = document.getElementById(side.toLowerCase());
+            if (card) {
+                card.classList.add('role-taken');
+            }
+        });
+
+        socket.on('side_released', ({ side }) => {
+            const card = document.getElementById(side.toLowerCase());
+            if (card) {
+                card.classList.remove('role-taken');
+            }
+        });
+
+        socket.on('side_already_taken', ({ side }) => {
+            showBanner(`${side} is already taken by another player!`, 'error');
+            selectedSide = null;
+            showScreen('character-select');
+        });
+
+        socket.on('opponent_found', (side) => {
+            // Both players ready, redirect to game page
+            window.location.href = `/${side.toLowerCase()}.html`;
+        });
+
+        socket.on('turn_update', ({ turn, turnNumber }) => {
+            const counter = document.getElementById('turn-counter');
+            const statusIndicator = document.getElementById('status-indicator');
+            const turnNum = document.getElementById('turn-number');
+            const statusText = document.getElementById('status-text');
+
+            if (gameStarted) {
+                counter.style.display = 'block';
+                statusIndicator.style.display = 'block';
+
+                turnNum.textContent = turnNumber;
+
+                if (turn === selectedSide) {
+                    statusText.textContent = 'YOUR TURN';
+                    statusIndicator.className = 'status-indicator your-turn';
+                } else {
+                    statusText.textContent = 'OPPONENT TURN';
+                    statusIndicator.className = 'status-indicator opponent-turn';
+                }
+            }
+        });
+
+
+
+
+
+        socket.on('game_started', () => {
+            gameStarted = true;
+        });
+
+        socket.on('game_reset', () => {
+            // Reset to start screen
+            gameStarted = false;
+            isReady = false;
+            selectedSide = null;
+            document.getElementById('turn-counter').style.display = 'none';
+            document.getElementById('status-indicator').style.display = 'none';
+            showScreen('start-screen');
+        });
+
+        socket.on('redirect_to_intro', () => {
+            window.location.reload();
+        });
+
+        // Handle synchronized selection countdown from server
+        socket.on('selection_countdown', ({ timeRemaining }) => {
+            // Update the selection timer display with server time
+            selectionTimeRemaining = timeRemaining;
+            updateSelectionTimer();
+
+            // Always show selection timer when receiving countdown
+            const timer = document.getElementById('selection-timer');
+            timer.style.display = 'block';
+        });
+
+        socket.on('waiting_for_opponent', () => {
+            // Show status that we're waiting for opponent
+            console.log('Waiting for opponent to select their side...');
+        });
+
+        socket.on('reset_to_selection', ({ reason, wasWaiting }) => {
+            // Handle timeout - reset to character selection
+            if (reason === 'timeout') {
+                selectedSide = null;
+                isReady = false;
+                stopSelectionTimer();
+                showScreen('character-select');
+
+                // Re-enable all character cards
+                document.getElementById('defender').classList.remove('role-taken');
+                document.getElementById('hacker').classList.remove('role-taken');
+
+                if (wasWaiting) {
+                    showBanner('The other player took too long to select. Please choose your side again.', 'error');
+                } else {
+                    showBanner('Selection timeout. Please choose your side again.', 'error');
+                }
+            }
+        });
+
+        // Prevent multiple games
+        socket.on('game_in_progress', () => {
+            showBanner('A game is already in progress. Please wait for it to finish.', 'info');
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('rules-modal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeRules();
+            }
+        });
+
+        // Integrated banner notifications
+        function showBanner(message, type = 'info') {
+            const banner = document.getElementById('systemBanner');
+            if (!banner) return;
+            banner.classList.remove('info', 'error');
+            banner.classList.add(type);
+            banner.textContent = message;
+            banner.style.display = 'block';
+            clearTimeout(window.__bannerTimeout);
+            window.__bannerTimeout = setTimeout(() => {
+                banner.style.display = 'none';
+            }, 4000);
+        }
+    </script>
+</body>
+
+</html>

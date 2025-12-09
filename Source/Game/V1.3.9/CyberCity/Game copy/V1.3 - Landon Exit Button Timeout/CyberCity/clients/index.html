@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose Your Side</title>
+    <style>
+        #start, #waiting {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #000;
+        }
+
+        #start img, #waiting img {
+            max-width: 95vw;
+            max-height: 95vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+
+        #start img:hover, #waiting img:hover {
+            transform: scale(1.22);
+        }
+
+        @media (max-width: 37.5rem) {
+            #start img, #waiting img {
+                max-width: 95vw;
+                max-height: 95vh;
+            }
+        }
+
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            align-items: center;
+            justify-content: center;
+            background-color: #000;
+            overflow: hidden;
+        }
+
+        #start img,
+        #waiting img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            margin: auto;
+            display: block;
+        }
+
+        #start, #waiting, #choose-side {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        #start img {
+            max-width: 85%;
+            max-height: 85%;
+            height: auto;
+            width: auto;
+        }
+
+        #choose-side {
+            display: none;
+            flex-direction: row;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+        }
+
+        #choose-side h1 {
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 5vw;
+            color: white;
+            text-shadow: .1875rem .1875rem .374rem rgba(0, 0, 0, 0.7);
+            z-index: 3;
+            margin: 0;
+        }
+
+        #hacker, #defender {
+            width: 50%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+            font-size: 5vw;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            background-size: cover;
+            background-position: center;
+        }
+
+        #hacker {
+            background-image: linear-gradient(135deg, rgba(255, 0, 0, 0.8), rgba(0, 0, 0, 0.7)), url('cybercitybadhacker.jpeg');
+            background-blend-mode: overlay;
+        }
+
+        #defender {
+            background-image: linear-gradient(135deg, rgba(0, 0, 255, 0.8), rgba(0, 0, 0, 0.7)), url('cybercitygooddefender.jpeg');
+            background-blend-mode: overlay;
+        }
+
+        #hacker:hover {
+            transform: scale(1.05);
+            box-shadow: -1.875rem 0 3.125rem rgba(255, 255, 255, 0.8);
+        }
+
+        #defender:hover {
+            transform: scale(1.05);
+            box-shadow: 1.875rem 0 3.125rem rgba(255, 255, 255, 0.8);
+            z-index: 2;
+        }
+
+        #hacker span, #defender span {
+            position: relative;
+            z-index: 2;
+            font-weight: bold;
+            text-shadow: .125rem .125rem .25rem rgba(0, 0, 0, 0.8);
+        }
+
+        @media (max-width: 37.5rem) {
+            #hacker, #defender {
+                font-size: 7vw;
+            }
+
+            #choose-side h1 {
+                font-size: 8vw;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="start">
+    <img src="start.png" alt="Start">
+</div>
+<div id="waiting">
+    <img src="waiting.png" alt="Waiting for opponent...">
+</div>
+<div id="choose-side">
+    <h1>Choose Your Side</h1>
+    <a href="#" id="defender" onclick="chooseSide('Defender')"><span>Defender</span></a>
+    <a href="#" id="hacker" onclick="chooseSide('Hacker')"><span>Hacker</span></a>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+    const startDiv = document.getElementById('start');
+    const waitingDiv = document.getElementById('waiting');
+    const chooseSideDiv = document.getElementById('choose-side');
+
+    let sideChosen = false; // Guard to prevent double clicking
+
+    // Display the start image initially
+    startDiv.style.display = 'flex';
+
+    // On any click, transition from start to side selection
+    document.body.addEventListener('click', () => {
+        if (startDiv.style.display === 'flex') {
+            startDiv.style.display = 'none';
+            chooseSideDiv.style.display = 'flex';
+        }
+    });
+
+    // Function to handle side selection
+    function chooseSide(side) {
+        if (sideChosen) return; // Prevent double selection
+        sideChosen = true; // Lock selection
+
+        // Emit the chosen side to the server
+        socket.emit('choose_side', side);
+    }
+
+    // Listen for an event indicating the player needs to wait
+    socket.on('waiting_for_opponent', () => {
+        chooseSideDiv.style.display = 'none';
+        waitingDiv.style.display = 'flex';
+    });
+
+    // Listen for the opponent found event
+    socket.on('opponent_found', (side) => {
+        // Redirect to the appropriate side page
+        window.location.href = `/${side.toLowerCase()}.html`;
+    });
+
+    // Listen for unavailable sides to disable selection
+    socket.on('side_unavailable', (unavailableSides) => {
+        if (unavailableSides.includes('Defender')) {
+            document.getElementById('defender').style.pointerEvents = 'none';
+            document.getElementById('defender').style.opacity = '0.5';
+        }
+        if (unavailableSides.includes('Hacker')) {
+            document.getElementById('hacker').style.pointerEvents = 'none';
+            document.getElementById('hacker').style.opacity = '0.5';
+        }
+    });
+    socket.on('game_ended', (message) => {
+    alert(message);
+    window.location.href = "/";
+});
+</script>
+</body>
+</html>

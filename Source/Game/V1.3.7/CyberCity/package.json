@@ -1,0 +1,17 @@
+{
+  "name": "cybercity-game",
+  "version": "1.0.0",
+  "description": "A cybersecurity-themed strategy game for LAN multiplayer",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "./start_game.sh",
+    "test": "./test_servers.py",
+    "dev": "python3 app.py & cd server && node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2"
+  },
+  "keywords": ["game", "cybersecurity", "multiplayer", "lan"],
+  "author": "",
+  "license": "ISC"
+}
