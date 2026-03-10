@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberCity Battle</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            height: 100%;
+            font-family: 'Orbitron', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            overflow: hidden;
+            color: #00ffea;
+        }
+
+        /* Animated background grid */
+        .grid-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 234, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 234, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+            z-index: -1;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* Screen containers */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* Start Screen - Old UI Style */
+        #start-screen {
+            background-color: #000;
+        }
+
+        #start-screen img {
+            max-width: 85%;
+            max-height: 85%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+
+        #start-screen img:hover {
+            transform: scale(1.22);
+        }
+
+        @media (max-width: 37.5rem) {
+            #start-screen img {
+                max-width: 95vw;
+                max-height: 95vh;
+            }
+        }
+
+        /* Character Selection Screen - Old UI Style */
+        #character-select {
+            flex-direction: row;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+        }
+
+        #character-select.active {
+            display: flex !important;
+        }
+
+        #character-select h1 {
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 5vw;
+            color: white;
+            text-shadow: .1875rem .1875rem .374rem rgba(0, 0, 0, 0.7);
+            z-index: 3;
+            margin: 0;
+        }
+
+        #hacker, #defender {
+            width: 50%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+            font-size: 5vw;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            background-size: cover;
+            background-position: center;
+            cursor: pointer;
+        }
+
+        #hacker {
+            background-image: linear-gradient(135deg, rgba(255, 0, 0, 0.8), rgba(0, 0, 0, 0.7)), url('cybercitybadhacker.jpeg');
+            background-blend-mode: overlay;
+        }
+
+        #defender {
+            background-image: linear-gradient(135deg, rgba(0, 0, 255, 0.8), rgba(0, 0, 0, 0.7)), url('cybercitygooddefender.jpeg');
+            background-blend-mode: overlay;
+        }
+
+        #hacker:hover {
+            transform: scale(1.05);
+            box-shadow: -1.875rem 0 3.125rem rgba(255, 255, 255, 0.8);
+        }
+
+        #defender:hover {
+            transform: scale(1.05);
+            box-shadow: 1.875rem 0 3.125rem rgba(255, 255, 255, 0.8);
+            z-index: 2;
+        }
+
+        #hacker span, #defender span {
+            position: relative;
+            z-index: 2;
+            font-weight: bold;
+            text-shadow: .125rem .125rem .25rem rgba(0, 0, 0, 0.8);
+        }
+
+        /* X overlay for taken roles */
+        .role-taken {
+            position: relative;
+        }
+
+        .role-taken::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .role-taken::after {
+            content: 'X';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 8vw;
+            color: #ff0000;
+            font-weight: bold;
+            text-shadow: 0 0 1rem rgba(255, 0, 0, 0.8), 0 0 2rem rgba(255, 0, 0, 0.6), 0 0 3rem rgba(255, 0, 0, 0.4);
+            z-index: 4;
+            pointer-events: none;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Disable hover effects for taken roles */
+        .role-taken:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        @media (max-width: 37.5rem) {
+            .role-taken::after {
+                font-size: 10vw;
+            }
+            #hacker, #defender {
+                font-size: 7vw;
+            }
+
+            #character-select h1 {
+                font-size: 8vw;
+            }
+        }
+
+        /* Ready Up Screen */
+        #ready-screen {
+            text-align: center;
+        }
+
+        .ready-title {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            text-shadow: 0 0 20px #00ffea;
+        }
+
+        .ready-info {
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-family: 'Share Tech Mono', monospace;
+            line-height: 1.6;
+        }
+
+        .ready-buttons {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .ready-button, .rules-button, .back-button {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border: 2px solid;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: transparent;
+        }
+
+        .ready-button {
+            border-color: #00ff00;
+            color: #00ff00;
+        }
+
+        .ready-button:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 20px #00ff00;
+        }
+
+        .ready-button.ready {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .rules-button {
+            border-color: #ffaa00;
+            color: #ffaa00;
+        }
+
+        .rules-button:hover {
+            background: #ffaa00;
+            color: #000;
+            box-shadow: 0 0 20px #ffaa00;
+        }
+
+        .back-button {
+            border-color: #666;
+            color: #666;
+        }
+
+        .back-button:hover {
+            background: #666;
+            color: #fff;
+            box-shadow: 0 0 20px #666;
+        }
+
+        /* Turn counter */
+        .turn-counter {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ffea;
+            border-radius: 10px;
+            padding: 1rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.1rem;
+            color: #00ffea;
+            z-index: 1000;
+        }
+
+        /* Status indicators */
+        .status-indicator {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid;
+            border-radius: 10px;
+            padding: 1rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            z-index: 1000;
+        }
+
+        .status-indicator.your-turn {
+            border-color: #00ff00;
+            color: #00ff00;
+        }
+
+        .status-indicator.opponent-turn {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        /* Countdown timer */
+        .countdown-timer {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #ffaa00;
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            font-size: 1.5rem;
+            color: #ffaa00;
+            z-index: 1001;
+            animation: timerPulse 1s ease-in-out infinite;
+        }
+
+        /* Selection timeout timer */
+        .selection-timer {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #ff9800;
+            border-radius: 10px;
+            padding: 1rem 2rem;
+            text-align: center;
+            font-size: 1.2rem;
+            color: #ff9800;
+            z-index: 1001;
+        }
+
+        .selection-timer.critical {
+            border-color: #ff0040;
+            color: #ff0040;
+            animation: pulse 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+
+        @keyframes timerPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        .countdown-timer.critical {
+            border-color: #ff0040;
+            color: #ff0040;
+            animation: timerPulseCritical 0.5s ease-in-out infinite;
+        }
+
+        @keyframes timerPulseCritical {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        /* Rules modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal {
+            background: #1a1a2e;
+            border: 2px solid #00ffea;
+            border-radius: 15px;
+            padding: 2rem;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: #fff;
+        }
+
+        .modal h2 {
+            color: #00ffea;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .modal p {
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .modal .close-button {
+            display: block;
+            margin: 2rem auto 0;
+            padding: 0.5rem 2rem;
+            background: #ff0040;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+        }
+
+        .modal .close-button:hover {
+            background: #ff3366;
+        }
+
+        /* System banner for integrated notifications/errors */
+        .system-banner {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, rgba(255,0,64,0.95), rgba(255,153,0,0.95));
+            color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+            font-family: 'Orbitron', monospace;
+            letter-spacing: 1px;
+            z-index: 4000;
+            display: none;
+            max-width: 90vw;
+            text-align: center;
+        }
+        .system-banner.info {
+            background: linear-gradient(90deg, rgba(0,153,255,0.9), rgba(0,255,234,0.9));
+        }
+        .system-banner.error {
+            background: linear-gradient(90deg, rgba(255,0,64,0.95), rgba(255,153,0,0.95));
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .characters-container {
+                flex-direction: column;
+                gap: 2rem;
+            }
+            
+            .character-select-title {
+                font-size: 2rem;
+            }
+            
+            .ready-buttons {
+                flex-direction: column;
+            }
+            
+            #start-screen .title {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-background"></div>
+
+    <!-- System notification banner -->
+    <div id="systemBanner" class="system-banner"></div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen active">
+        <img src="start.png" alt="Start" onclick="showCharacterSelect()">
+    </div>
+
+    <!-- Character Selection Screen -->
+    <div id="character-select" class="screen">
+        <h1>Choose Your Side</h1>
+        <div id="defender" data-side="Defender" onclick="selectCharacter('Defender')">
+            <span>Defender</span>
+        </div>
+        <div id="hacker" data-side="Hacker" onclick="selectCharacter('Hacker')">
+            <span>Hacker</span>
+        </div>
+    </div>
+
+    <!-- Ready Up Screen -->
+    <div id="ready-screen" class="screen">
+        <h2 class="ready-title">BATTLE STATIONS</h2>
+        <div class="ready-info">
+            <p>Both players connected successfully.</p>
+            <p>Role: <span id="selected-role" style="color: #00ffea; font-weight: bold;"></span></p>
+            <p>When both players are ready, the battle will commence!</p>
+        </div>
+        <div class="ready-buttons">
+            <button class="back-button" onclick="goBack('character')">← CHANGE ROLE</button>
+            <button class="rules-button" onclick="showRules()">RULES</button>
+        </div>
+    </div>
+
+    <!-- Turn counter -->
+    <div id="turn-counter" class="turn-counter" style="display: none;">
+        Turn: <span id="turn-number">1</span>
+    </div>
+
+    <!-- Status indicator -->
+    <div id="status-indicator" class="status-indicator" style="display: none;">
+        <span id="status-text">Waiting...</span>
+    </div>
+
+    <!-- Countdown timer -->
+    <div id="countdown-timer" class="countdown-timer" style="display: none;">
+        <div>Time Remaining</div>
+        <div id="timer-value">30</div>
+    </div>
+
+    <!-- Selection timeout timer -->
+    <div id="selection-timer" class="selection-timer" style="display: none;">
+        <div>Select a role in: <span id="selection-time">2:00</span></div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="modal-overlay">
+        <div class="modal">
+            <h2>CYBERCITY BATTLE RULES</h2>
+            <p><strong>Objective:</strong> Defenders protect the city while Hackers try to compromise locations.</p>
+            <p><strong>Victory Conditions:</strong> Control more locations than your opponent when the game ends.</p>
+            <p><strong>Game Flow:</strong></p>
+            <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+                <li>10 rounds total, 2 turns each</li>
+                <li>Defender gets first 2 turns to set up defenses</li>
+                <li>Hacker gets final round advantage</li>
+                <li>Each location worth 1 point (Lackland worth 2 points)</li>
+            </ul>
+            <p><strong>Defender Actions:</strong> Firewall, Virus Protection, Intrusion Detection, User Training</p>
+            <p><strong>Hacker Actions:</strong> Phishing, Virus, Malware</p>
+            <p><strong>Compromise Levels:</strong> 75%+ = Compromised, 100% = Permanently lost</p>
+            <button class="close-button" onclick="closeRules()">CLOSE</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let selectedSide = null;
+        let gameStarted = false;
+        let isReady = false;
+        let selectionTimer = null;
+        let selectionTimeRemaining = 120; // 2 minutes
+
+        // Screen management
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function showCharacterSelect() {
+            showScreen('character-select');
+            // Show selection timer immediately
+            const timer = document.getElementById('selection-timer');
+            timer.style.display = 'block';
+            // Emit to server to start the initial selection timer
+            socket.emit('start_initial_selection');
+        }
+
+        function goBack(screen) {
+            if (screen === 'start') {
+                // Reset game state when going back to start
+                selectedSide = null;
+                isReady = false;
+                stopSelectionTimer();
+                showScreen('start-screen');
+            } else if (screen === 'character') {
+                // Release current side selection
+                if (selectedSide) {
+                    socket.emit('release_side', selectedSide);
+                    selectedSide = null;
+                }
+                isReady = false;
+                showScreen('character-select');
+                // Show selection timer immediately
+                const timer = document.getElementById('selection-timer');
+                timer.style.display = 'block';
+                // Emit to server to start the initial selection timer
+                socket.emit('start_initial_selection');
+                // Re-enable character cards
+                document.getElementById('defender').classList.remove('role-taken');
+                document.getElementById('hacker').classList.remove('role-taken');
+            }
+        }
+
+        function selectCharacter(side) {
+            const card = document.getElementById(side.toLowerCase());
+            if (card && card.classList.contains('role-taken')) return;
+
+            selectedSide = side;
+            socket.emit('choose_side', side);
+            
+            // Update selected role display
+            document.getElementById('selected-role').textContent = side.toUpperCase();
+            document.getElementById('selected-role').style.color = side === 'Defender' ? '#0099ff' : '#ff0040';
+            
+            stopSelectionTimer();
+            showScreen('ready-screen');
+        }
+
+        function readyUp() {
+            if (!selectedSide || isReady) return;
+            
+            isReady = true;
+            const btn = document.getElementById('ready-btn');
+            btn.textContent = 'READY!';
+            btn.classList.add('ready');
+            btn.disabled = true;
+            
+            socket.emit('ready_up', { side: selectedSide });
+        }
+
+        function showRules() {
+            document.getElementById('rules-modal').style.display = 'flex';
+        }
+
+        function closeRules() {
+            document.getElementById('rules-modal').style.display = 'none';
+        }
+
+        // Selection timer functions
+        function startSelectionTimer() {
+            selectionTimeRemaining = 120; // 2 minutes
+            const timer = document.getElementById('selection-timer');
+            timer.style.display = 'block';
+            updateSelectionTimer();
+            
+            selectionTimer = setInterval(() => {
+                selectionTimeRemaining--;
+                updateSelectionTimer();
+                
+                if (selectionTimeRemaining <= 0) {
+                    clearInterval(selectionTimer);
+                    selectionTimer = null;
+                    // Redirect to home page when timer expires
+                    window.location.href = '/';
+                }
+            }, 1000);
+        }
+
+        function updateSelectionTimer() {
+            const timer = document.getElementById('selection-timer');
+            const timeDisplay = document.getElementById('selection-time');
+            const minutes = Math.floor(selectionTimeRemaining / 60);
+            const seconds = selectionTimeRemaining % 60;
+            
+            // Ensure timer is visible
+            timer.style.display = 'block';
+            
+            // Update just the time display
+            if (selectionTimeRemaining > 60) {
+                timeDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            } else if (selectionTimeRemaining > 0) {
+                timeDisplay.textContent = `${selectionTimeRemaining}s`;
+            } else {
+                timeDisplay.textContent = '0s';
+            }
+            
+            // Add critical styling when under 30 seconds
+            if (selectionTimeRemaining <= 30) {
+                timer.classList.add('critical');
+            } else {
+                timer.classList.remove('critical');
+            }
+        }
+
+        function stopSelectionTimer() {
+            if (selectionTimer) {
+                clearInterval(selectionTimer);
+                selectionTimer = null;
+            }
+            document.getElementById('selection-timer').style.display = 'none';
+        }
+
+        // Socket event handlers
+        socket.on('side_taken', ({ side }) => {
+            const card = document.getElementById(side.toLowerCase());
+            if (card) {
+                card.classList.add('role-taken');
+            }
+        });
+
+        socket.on('side_released', ({ side }) => {
+            const card = document.getElementById(side.toLowerCase());
+            if (card) {
+                card.classList.remove('role-taken');
+            }
+        });
+
+        socket.on('side_already_taken', ({ side }) => {
+            showBanner(`${side} is already taken by another player!`, 'error');
+            selectedSide = null;
+            showScreen('character-select');
+        });
+
+        socket.on('opponent_found', (side) => {
+            // Both players ready, redirect to game page
+            window.location.href = `/${side.toLowerCase()}.html`;
+        });
+
+        socket.on('turn_update', ({ turn, turnNumber }) => {
+            const counter = document.getElementById('turn-counter');
+            const statusIndicator = document.getElementById('status-indicator');
+            const turnNum = document.getElementById('turn-number');
+            const statusText = document.getElementById('status-text');
+            
+            if (gameStarted) {
+                counter.style.display = 'block';
+                statusIndicator.style.display = 'block';
+                
+                turnNum.textContent = turnNumber;
+                
+                if (turn === selectedSide) {
+                    statusText.textContent = 'YOUR TURN';
+                    statusIndicator.className = 'status-indicator your-turn';
+                } else {
+                    statusText.textContent = 'OPPONENT TURN';
+                    statusIndicator.className = 'status-indicator opponent-turn';
+                }
+            }
+        });
+
+        socket.on('countdown', ({ timeRemaining }) => {
+            const timer = document.getElementById('countdown-timer');
+            const timerValue = document.getElementById('timer-value');
+            
+            timer.style.display = 'block';
+            timerValue.textContent = timeRemaining;
+            
+            if (timeRemaining <= 10) {
+                timer.classList.add('critical');
+            } else {
+                timer.classList.remove('critical');
+            }
+        });
+
+        socket.on('countdown_end', () => {
+            document.getElementById('countdown-timer').style.display = 'none';
+        });
+
+        socket.on('game_started', () => {
+            gameStarted = true;
+        });
+
+        socket.on('game_reset', () => {
+            // Reset to start screen
+            gameStarted = false;
+            isReady = false;
+            selectedSide = null;
+            document.getElementById('turn-counter').style.display = 'none';
+            document.getElementById('status-indicator').style.display = 'none';
+            document.getElementById('countdown-timer').style.display = 'none';
+            showScreen('start-screen');
+        });
+
+        socket.on('redirect_to_intro', () => {
+            window.location.reload();
+        });
+
+        // Handle synchronized selection countdown from server
+        socket.on('selection_countdown', ({ timeRemaining }) => {
+            // Update the selection timer display with server time
+            selectionTimeRemaining = timeRemaining;
+            updateSelectionTimer();
+            
+            // Always show selection timer when receiving countdown
+            const timer = document.getElementById('selection-timer');
+            timer.style.display = 'block';
+        });
+
+        socket.on('waiting_for_opponent', () => {
+            // Show status that we're waiting for opponent
+            console.log('Waiting for opponent to select their side...');
+        });
+
+        socket.on('reset_to_selection', ({ reason, wasWaiting }) => {
+            // Handle timeout - reset to character selection
+            if (reason === 'timeout') {
+                selectedSide = null;
+                isReady = false;
+                stopSelectionTimer();
+                showScreen('character-select');
+                
+                // Re-enable all character cards
+                document.getElementById('defender').classList.remove('role-taken');
+                document.getElementById('hacker').classList.remove('role-taken');
+                
+                if (wasWaiting) {
+                    showBanner('The other player took too long to select. Please choose your side again.', 'error');
+                } else {
+                    showBanner('Selection timeout. Please choose your side again.', 'error');
+                }
+            }
+        });
+
+        // Prevent multiple games
+        socket.on('game_in_progress', () => {
+            showBanner('A game is already in progress. Please wait for it to finish.', 'info');
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('rules-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeRules();
+            }
+        });
+
+        // Integrated banner notifications
+        function showBanner(message, type = 'info') {
+            const banner = document.getElementById('systemBanner');
+            if (!banner) return;
+            banner.classList.remove('info', 'error');
+            banner.classList.add(type);
+            banner.textContent = message;
+            banner.style.display = 'block';
+            clearTimeout(window.__bannerTimeout);
+            window.__bannerTimeout = setTimeout(() => {
+                banner.style.display = 'none';
+            }, 4000);
+        }
+    </script>
+</body>
+</html>

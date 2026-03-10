@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber City Battle</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #c0c0c0;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .container {
+            background-image: linear-gradient(to bottom right, #242424, #484848);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2.5rem 6.25rem rgba(0, 255, 255, 0.5);
+            margin: 2rem auto;
+            max-width: 80vw; /* Adjust as needed for larger screens */
+        }
+        h1, h2 {
+            color: #00ffea;
+        }
+        .btn {
+            margin-top: 1rem;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            color: #fff;
+            font-size: 1em;
+        }
+        .btn-danger {
+            background-color: #ff073a;
+        }
+        .btn-success {
+            background-color: #4caf50;
+        }
+        .btn-warning {
+            background-color: #ff9800;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .alert-primary {
+            background-color: #007bff;
+            border-color: #0056b3;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn:hover {
+            opacity: 0.8;
+        }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+        .col-md-12 {
+            flex: 0 0 96%;
+            max-width: 100%;
+            padding: 1rem;
+        }
+        .mt-4 {
+            margin-top: 1.5rem !important;
+        }
+        .alert-secondary {
+            color: #41464b;
+            background-color: #e2e3e5;
+            border-color: #d3d6d8;
+        }
+        .alert {
+            position: relative;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid transparent;
+            border-radius: .25rem;
+        }
+        .alert-secondary li:last-child {
+            color: teal;
+        }
+        /* Custom scroll bars */
+        ::-webkit-scrollbar {
+            width: 1rem;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Lightbulb styles */
+        .lightbulb {
+            display: flex;
+            align-items: center;
+        }
+        .lightbulb span {
+            display: inline-block;
+            width: 2rem;
+            height: 2rem;
+            background-color: grey;
+            border-radius: 50%;
+            margin-right: 1rem;
+        }
+        .lightbulb span.on {
+            background-color: yellow;
+        }
+        #gameMessages {
+            max-height: 12vh;
+            overflow-y: auto;
+        }
+        /* CSS class for hidden elements */
+        .hidden {
+            display: none;
+        }
+        /* Flex layout for the button row */
+        .button-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #readyButtonDiv {
+            /*display: flex;*/
+            align-items: flex-end;
+        }
+
+        .game-over {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+    <h1>Cyber City Battle</h1>
+    <div class="alert alert-primary" role="alert">
+        <div>
+            Current Turn: <span id="currentTurn">Loading...</span>
+        </div>
+        <div id="roundNumber" style="font-size: 1.2rem; font-weight: bold;">Round 1</div> <!-- New round number element -->
+
+        <div class="lightbulb">
+            <span id="lightbulb"></span>
+            <p id="turnMessage">Loading...</p>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12 button-row">
+            <div>
+                <h2>Battle Actions</h2>
+                <form id="battleActionsForm">
+                    <button type="button" class="btn btn-danger" onclick="confirmAction()" id="attackButton">Hack</button>
+                </form>
+            </div>
+            <div id="readyButtonDiv" >
+                <h2>Ready Up</h2>
+                <button type="button" id="readyButton" class="btn btn-ready btn-secondary" onclick="readyUp()">Ready Up</button>
+            </div>
+        </div>
+    </div>
+    <h2>Hacker Actions</h2>
+    <button class="btn btn-warning" onclick="selectAction('Phishing')">Phishing</button>
+    <button class="btn btn-warning" onclick="selectAction('Virus')">Virus</button>
+    <button class="btn btn-warning" onclick="selectAction('Malware')">Malware</button>
+    <p></p>
+    <h2>Locations</h2>
+    <button class="btn btn-secondary" onclick="selectLocation('Business')">Business</button>
+    <button class="btn btn-secondary" onclick="selectLocation('Hospital')">Hospital</button>
+    <button class="btn btn-secondary" onclick="selectLocation('Fire/Police')">Fire/Police</button>
+    <button class="btn btn-secondary" onclick="selectLocation('Industrial')">Industrial</button>
+    <button class="btn btn-secondary" onclick="selectLocation('University')">University</button>
+    <button class="btn btn-secondary" onclick="selectLocation('Housing')">Housing</button>
+    <button class="btn btn-secondary" onclick="selectLocation('Fort Sam')">Fort Sam</button>
+    <button class="btn btn-secondary" onclick="selectLocation('Traffic Lights')">Traffic Lights</button>
+    <div class="alert alert-secondary mt-4" role="alert">
+        <h2>Game Messages</h2>
+        <ul id="gameMessages"></ul>
+    </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+    let selectedAction = null;
+    let selectedLocation = null;
+    socket.emit('login', 'Hacker');
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+    });
+    socket.on('game_message', (message) => {
+        const gameMessages = document.getElementById('gameMessages');
+        const messageElement = document.createElement('li');
+        messageElement.textContent = message;
+        const previousMessage = gameMessages.querySelector('li:last-child');
+        if (previousMessage) {
+            previousMessage.style.color = ''; // Reset color to default
+        }
+        gameMessages.appendChild(messageElement);
+        scrollToBottom(gameMessages);
+        // Hide the ready button if both players are ready
+        if (message.includes('Both players are ready')) {
+            document.getElementById('readyButtonDiv').classList.add('hidden');
+        }
+    });
+    socket.on('hacker_game_message', (message) => {
+        const gameMessages = document.getElementById('gameMessages');
+        const messageElement = document.createElement('li');
+        messageElement.textContent = `${message}`;
+        const previousMessage = gameMessages.querySelector('li:last-child');
+        if (previousMessage) {
+            previousMessage.style.color = ''; // Reset color to default
+        }
+        gameMessages.appendChild(messageElement);
+        scrollToBottom(gameMessages);
+    });
+    socket.on('turn', (turn) => {
+        document.getElementById('currentTurn').textContent = turn;
+        updateLightbulb(turn);
+    });
+
+    socket.on('hide_ready_buttons', () => {
+        document.getElementById('readyButtonDiv').classList.add('hidden');
+    });
+    socket.on('start_game', (turn) => {
+        updateTurnUI(turn);
+    });
+    function scrollToBottom(element) {
+        element.scrollTop = element.scrollHeight;
+    }
+    function updateLightbulb(turn) {
+        const lightbulb = document.getElementById('lightbulb');
+        const turnMessage = document.getElementById('turnMessage');
+        if (turn === 'Hacker') {
+            lightbulb.classList.add('on');
+            turnMessage.textContent = "It's your turn!";
+        } else {
+            lightbulb.classList.remove('on');
+            turnMessage.textContent = "Not your turn!";
+        }
+    }
+
+    function readyUp() {
+        const readyButton = document.getElementById('readyButton');
+        readyButton.classList.remove('btn-secondary');
+        readyButton.classList.add('btn-success');
+        readyButton.disabled = true; // Disable button to prevent multiple clicks
+        socket.emit('ready_up', { side: 'Hacker' });
+    }
+    // function updateTurnUI(turn) {
+    //     const currentTurn = document.getElementById('currentTurn');
+    //     const turnMessage = document.getElementById('turnMessage');
+    //     const lightbulb = document.getElementById('lightbulb');
+    //     if (turn === 'Hacker') {
+    //         currentTurn.textContent = 'Hacker';
+    //         turnMessage.textContent = "It's your turn!";
+    //         lightbulb.classList.add('on');
+    //     } else {
+    //         currentTurn.textContent = 'Defender';
+    //         turnMessage.textContent = 'Not your turn!';
+    //         lightbulb.classList.remove('on');
+    //     }
+    // }
+    function selectAction(action) {
+        selectedAction = action;
+        socket.emit('action', { side: 'Hacker', action });
+        checkAndEmitTurnCompletion('Hacker');
+    }
+    function selectLocation(location) {
+        selectedLocation = location;
+        console.log(`Selected location: ${selectedLocation}`);
+        socket.emit('location', { side: 'Hacker', location });
+        checkAndEmitTurnCompletion('Hacker');
+    }
+
+    function confirmAction() {
+        if (selectedAction && selectedLocation) {
+            console.log(`Confirming action: ${selectedAction} on location: ${selectedLocation}`);
+            socket.emit('confirm_action', {
+                side: 'Hacker',
+                action: selectedAction,
+                location: selectedLocation
+            });
+        } else {
+            console.log('Action or location not selected properly.');
+        }
+    }
+
+    function checkAndEmitTurnCompletion(side) {
+        if (selectedAction && selectedLocation) {
+            socket.emit(`${side.toLowerCase()}_game_message`, `Are you sure you would like to apply ${selectedAction} to ${selectedLocation}? If yes, click Confirm.`);
+        }
+    }
+
+    socket.on('round_update', (round) => {
+        document.getElementById('roundNumber').textContent = `Round ${round}`;
+    });
+
+
+    socket.on('game_over', () => {
+        document.getElementById('currentTurn').textContent = 'Game Over';
+        document.getElementById('lightbulb').classList.remove('on');
+        document.getElementById('turnMessage').textContent = 'Not your turn!';
+        document.getElementById('readyButtonDiv').classList.add('hidden'); // Hide the ready button
+    });
+
+
+
+
+
+    function updateTurnUI(turn) {
+        if (document.getElementById('currentTurn').textContent !== 'Game Over') {
+            document.getElementById('currentTurn').textContent = turn;
+            const lightbulb = document.getElementById('lightbulb');
+            const turnMessage = document.getElementById('turnMessage');
+            if (turn === 'Defender') {
+                lightbulb.classList.add('on');
+                turnMessage.textContent = "It's your turn!";
+            } else {
+                lightbulb.classList.remove('on');
+                turnMessage.textContent = "Not your turn!";
+            }
+        }
+    }
+    socket.on('player_turn_status', ({ isYourTurn }) => {
+        const lightbulb = document.getElementById('lightbulb');
+        const turnMessage = document.getElementById('turnMessage');
+
+        if (isYourTurn) {
+            lightbulb.classList.add('on');
+            turnMessage.textContent = "It's your turn!";
+        } else {
+            lightbulb.classList.remove('on');
+            turnMessage.textContent = "Not your turn!";
+        }
+    });
+
+
+</script>
+</body>
+</html>
+
+
+

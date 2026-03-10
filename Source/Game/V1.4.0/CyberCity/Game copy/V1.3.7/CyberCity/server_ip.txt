@@ -1,0 +1,5 @@
+# Server IP Configuration
+# Enter your WLAN IP address below (one line only)
+# Example: 192.168.1.100
+# Leave empty to use auto-detection
+

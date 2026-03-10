@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberCity Battle - Defender</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #00ffea;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background grid */
+        .grid-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 234, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 234, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+            z-index: -1;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.7rem 1.5rem;
+            background: rgba(0, 0, 0, 0.85);
+            border-bottom: 2px solid #007fff;
+            position: relative;
+            z-index: 3001;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            text-shadow: 0 0 20px #00ffea, 0 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 1px;
+        }
+
+        .role {
+            background: linear-gradient(45deg, #007fff, #0056b3);
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 15px rgba(0, 127, 255, 0.3);
+        }
+
+        .header-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 180px;
+        }
+
+        .turn-counter {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            background: rgba(0, 0, 0, 0.55);
+            padding: 0.5rem 1.2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 255, 234, 0.35);
+            box-shadow: 0 0 12px rgba(0, 255, 234, 0.18);
+        }
+
+        .turn-counter .turn-label {
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #8df5ff;
+        }
+
+        .turn-counter .turn-value {
+            display: flex;
+            align-items: baseline;
+            gap: 0.35rem;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffd54f;
+        }
+
+        .turn-total {
+            font-size: 0.9rem;
+            color: #cccccc;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .ready-btn {
+            background: linear-gradient(45deg, #00ff00, #00aa00);
+            color: #000;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .ready-btn:hover {
+            box-shadow: 0 0 20px #00ff00;
+        }
+
+        .ready-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .exit-btn {
+            background: linear-gradient(45deg, #ff0040, #cc0033);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            font-weight: bold;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 15px rgba(255, 0, 64, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .exit-btn:hover {
+            box-shadow: 0 0 20px #ff0040;
+        }
+
+        /* Consistent vertical spacing helper */
+        .section-spacing {
+            margin-bottom: 2rem;
+        }
+
+        /* Action name styling */
+        .action-name {
+            font-size: clamp(0.95rem, 1.2vw, 1.2rem);
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Small description under each action */
+        .action-desc {
+            font-size: 0.7rem;
+            margin-top: 0.2rem;
+            color: rgba(255, 255, 255, 0.88);
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 400;
+            line-height: 1.2;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.2rem 0.3rem;
+            border-radius: 3px;
+            text-transform: none;
+            letter-spacing: 0.2px;
+        }
+
+        /* Opponent turn blocker overlay (excludes header area) */
+        .turn-blocker {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: 64px; /* updated dynamically in JS to header height */
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2500; /* Below header (3001), above content */
+        }
+        .turn-blocker-content {
+            text-align: center;
+            color: #00ffea;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 2px solid #00ffea;
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 0 24px rgba(0, 255, 234, 0.25);
+        }
+        .turn-blocker-content h2 {
+            margin-bottom: 0.5rem;
+            color: #ffaa00;
+        }
+
+        /* System banner for integrated errors/notifications */
+        .system-banner {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, rgba(255,0,64,0.9), rgba(255,153,0,0.9));
+            color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+            font-family: 'Orbitron', monospace;
+            letter-spacing: 1px;
+            z-index: 4000; /* Above everything */
+            display: none;
+            max-width: 90vw;
+            text-align: center;
+        }
+        .system-banner.info {
+            background: linear-gradient(90deg, rgba(0,153,255,0.9), rgba(0,255,234,0.9));
+        }
+        .system-banner.error {
+            background: linear-gradient(90deg, rgba(255,0,64,0.95), rgba(255,153,0,0.95));
+        }
+
+        /* Turn status bar */
+        .turn-status {
+            background: linear-gradient(45deg, #007fff, #0056b3);
+            color: white;
+            text-align: center;
+            padding: 0.8rem;
+            font-size: 1.3rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(0, 127, 255, 0.5);
+            border-bottom: 3px solid #00ffea;
+            animation: pulse-glow 2s ease-in-out infinite alternate;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            position: relative;
+        }
+
+        .turn-status.waiting {
+            background: linear-gradient(45deg, #666, #444);
+            box-shadow: 0 0 20px rgba(100, 100, 100, 0.5);
+            animation: none;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 20px rgba(0, 127, 255, 0.5); }
+            100% { box-shadow: 0 0 30px rgba(0, 127, 255, 0.8); }
+        }
+
+        /* Main game layout */
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - 80px);
+            padding: 0.5rem;
+            gap: 0.5rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* Actions section */
+        .actions-section {
+            flex-shrink: 0;
+        }
+
+        .actions-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: #00ffea;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(0, 255, 234, 0.5);
+        }
+
+        .actions-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.8rem;
+            margin-bottom: 0.8rem;
+            padding: 0 0.4rem;
+        }
+
+        .action-btn {
+            background: linear-gradient(45deg, #007fff, #0056b3);
+            color: white;
+            border: none;
+            padding: 1.6rem 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 6px 18px rgba(0, 127, 255, 0.35);
+        }
+
+        .action-btn:hover {
+            box-shadow: 0 0 30px #007fff;
+            transform: translateY(-2px);
+        }
+
+        .action-btn.selected {
+            box-shadow: 0 0 40px #ffff00, 0 0 20px rgba(255, 255, 0, 0.8), inset 0 0 30px rgba(255, 255, 0, 0.3);
+            border: 4px solid #ffff00;
+            transform: translateY(-5px) scale(1.08);
+            background: linear-gradient(45deg, #007fff, #0056b3), linear-gradient(45deg, rgba(255, 255, 0, 0.15), rgba(255, 255, 0, 0.15));
+            background-blend-mode: overlay;
+            animation: selected-pulse 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes selected-pulse {
+            0% { 
+                box-shadow: 0 0 40px #ffff00, 0 0 20px rgba(255, 255, 0, 0.8), inset 0 0 30px rgba(255, 255, 0, 0.3);
+                border-color: #ffff00;
+            }
+            100% { 
+                box-shadow: 0 0 60px #ffff00, 0 0 30px rgba(255, 255, 0, 1), inset 0 0 40px rgba(255, 255, 0, 0.4);
+                border-color: #ffff80;
+            }
+        }
+
+        .action-controls {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .confirm-btn {
+            flex: 1 1 220px;
+            background: linear-gradient(45deg, #34ff6d, #00c853);
+            color: #00200a;
+            font-size: 1.05rem;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 800;
+            padding: 1.1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 12px 24px rgba(52, 255, 109, 0.35);
+            min-width: 220px;
+        }
+
+        .confirm-btn:hover {
+            box-shadow: 0 16px 28px rgba(52, 255, 109, 0.55);
+            transform: translateY(-3px) scale(1.02);
+        }
+
+        .confirm-btn:active {
+            transform: translateY(0);
+        }
+
+        .skip-btn {
+            flex: 1 1 160px;
+            background: linear-gradient(45deg, #ff9800, #e65100);
+            color: white;
+            box-shadow: 0 12px 24px rgba(255, 152, 0, 0.35);
+            font-size: 1rem;
+            padding: 1.1rem;
+            border: 2px solid #ff9800;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            letter-spacing: 0.6px;
+            transition: all 0.3s ease;
+            min-width: 160px;
+        }
+
+        .skip-btn:hover {
+            box-shadow: 0 12px 24px rgba(255, 152, 0, 0.55);
+            transform: translateY(-3px);
+            border-color: #ffaa00;
+        }
+
+        /* Locations grid */
+        .locations-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        .locations-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: #00ffea;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(0, 255, 234, 0.5);
+        }
+        
+        .locations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.8rem;
+            flex: 1;
+            align-content: start;
+            margin-bottom: 0.6rem;
+            padding: 0 0.4rem;
+        }
+
+        .location-card {
+            background: rgba(0, 0, 0, 0.85);
+            border: 3px solid #333;
+            border-radius: 12px;
+            padding: 1.4rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+        }
+
+        .location-card:hover {
+            border-color: #007fff;
+            box-shadow: 0 0 20px rgba(0, 127, 255, 0.3);
+            transform: translateY(-5px);
+        }
+
+        .location-card.selected {
+            border-color: #ffff00;
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+            background: rgba(0, 0, 0, 0.85); /* keep bars visible on selection */
+        }
+
+        .location-name {
+            font-size: clamp(1.2rem, 1.6vw, 1.5rem);
+            font-weight: 700;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            margin-bottom: 0.75rem;
+            color: #00ffea;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+            letter-spacing: 0.8px;
+        }
+
+        .compromise-info {
+            font-size: 1.1rem;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #f0f0f0;
+            letter-spacing: 0.4px;
+        }
+
+        .compromise-bar {
+            width: 100%;
+            height: 12px;
+            background: #333;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .compromise-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        /* Message log */
+        .message-log-panel {
+            position: fixed;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(92vw, 760px);
+            background: rgba(0, 0, 0, 0.92);
+            border-radius: 16px;
+            border: 2px solid rgba(0, 255, 234, 0.55);
+            box-shadow: 0 18px 40px rgba(0, 255, 234, 0.18);
+            z-index: 1200;
+            overflow: hidden;
+            backdrop-filter: blur(6px);
+        }
+
+        .message-log-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.65rem 1.2rem;
+            background: linear-gradient(90deg, rgba(0, 127, 255, 0.45), rgba(0, 255, 234, 0.35));
+            border-bottom: 1px solid rgba(0, 255, 234, 0.35);
+        }
+
+        .message-log-title {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 700;
+            letter-spacing: 1.8px;
+            font-size: 0.85rem;
+            color: #8df5ff;
+            text-transform: uppercase;
+        }
+
+        .message-log-meta {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        .message-log {
+            max-height: 240px;
+            overflow-y: auto;
+            padding: 0.85rem 1.15rem 1.15rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.88rem;
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .message-log::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .message-log::-webkit-scrollbar-track {
+            background: rgba(0, 40, 60, 0.6);
+        }
+
+        .message-log::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #00ffea, #007fff);
+            border-radius: 4px;
+        }
+
+        .message-entry {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.65rem;
+            padding: 0.55rem 0.65rem;
+            border-radius: 10px;
+            background: rgba(0, 20, 28, 0.65);
+            border: 1px solid rgba(0, 255, 234, 0.1);
+            box-shadow: inset 0 0 12px rgba(0, 255, 234, 0.08);
+            margin-bottom: 0.55rem;
+            align-items: center;
+        }
+
+        .message-entry:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            color: rgba(141, 245, 255, 0.8);
+        }
+
+        .message-text {
+            line-height: 1.35;
+        }
+
+        .message-text strong {
+            color: #8df5ff;
+            font-weight: 600;
+        }
+
+        .message-entry {
+            border-left: 3px solid rgba(0, 255, 234, 0.35);
+        }
+
+        .message-entry.message-info {
+            border-left-color: rgba(0, 255, 234, 0.5);
+        }
+
+        .message-entry.message-success {
+            border-left-color: #57ff2d;
+            background: rgba(16, 45, 24, 0.5);
+        }
+
+        .message-entry.message-warning {
+            border-left-color: #ffb300;
+            background: rgba(45, 34, 0, 0.5);
+        }
+
+        .message-entry.message-error {
+            border-left-color: #ff4d6d;
+            background: rgba(45, 0, 12, 0.55);
+        }
+
+        .message-entry.message-success .message-time {
+            color: rgba(135, 255, 170, 0.85);
+        }
+
+        .message-entry.message-warning .message-time {
+            color: rgba(255, 215, 130, 0.85);
+        }
+
+        .message-entry.message-error .message-time {
+            color: rgba(255, 120, 150, 0.85);
+        }
+
+        /* Instructions Modal */
+        .instructions-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .instructions-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 3px solid #00ffea;
+            border-radius: 15px;
+            padding: 2rem;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: #00ffea;
+            position: relative;
+            text-align: left;
+            box-shadow: 0 0 30px rgba(0, 255, 234, 0.3);
+            line-height: 1.6;
+            margin: 2rem;
+        }
+        
+        .instructions-content h2 {
+            text-align: center;
+            margin-bottom: 1.2rem;
+            font-size: 1.6rem;
+            color: #00ffea;
+            text-shadow: 0 0 10px #00ffea;
+        }
+        
+        .instructions-content p {
+            margin-bottom: 0.8rem;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        .instructions-content strong {
+            color: #00ffea;
+            font-weight: bold;
+        }
+
+        .instructions-timer {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: linear-gradient(45deg, #007fff, #0056b3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            font-weight: bold;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .instructions-timer.warning {
+            background: linear-gradient(45deg, #ff9800, #e65100);
+        }
+
+        .instructions-timer.critical {
+            background: linear-gradient(45deg, #ff0040, #cc0033);
+            animation: pulse 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+
+        /* Turn countdown timer - now integrated into status bar */
+        .turn-timer {
+            background: rgba(0, 0, 0, 0.35);
+            color: #ffff66;
+            padding: 0.45rem 0.9rem;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            border: 2px solid #ffff66;
+            display: none;
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .turn-timer.critical {
+            background: linear-gradient(45deg, #ff0040, #cc0033);
+            animation: pulse 1s infinite;
+        }
+
+        /* Responsive design system */
+@media (min-width: 992px) {
+            .game-container { display: grid; grid-template-columns: 1fr 2fr; align-items: start; gap: 0.6rem; }
+            .actions-container { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+            .locations-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+        }
+
+        @media (min-width: 1200px) {
+            .game-container { display: grid; grid-template-columns: 1fr 2fr; align-items: start; gap: 0.8rem; }
+            .actions-container { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+            .locations-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+        }
+
+        @media (max-width: 1200px) {
+            .game-container {
+                padding: 0.8rem;
+                gap: 1rem;
+            }
+            
+            .actions-container {
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 1.2rem;
+            }
+            
+            .locations-grid {
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 1.5rem;
+            }
+
+            .message-log-panel {
+                width: min(90vw, 620px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 0.5rem;
+                gap: 0.5rem;
+                min-height: calc(100vh - 70px);
+            }
+            
+            .actions-container {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.5rem;
+            }
+            
+            .action-btn {
+                min-height: 90px;
+                padding: 1rem 0.5rem;
+            }
+            
+            .locations-grid {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.5rem;
+            }
+            
+            .location-card {
+                min-height: 90px;
+                padding: 0.8rem;
+            }
+
+            .message-log-panel {
+                width: calc(100vw - 1.5rem);
+                bottom: 90px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 0.8rem;
+                gap: 0.8rem;
+            }
+            
+            .actions-container {
+                grid-template-columns: 1fr;
+                gap: 0.8rem;
+            }
+            
+            .action-btn {
+                min-height: 100px;
+                padding: 1rem;
+            }
+            
+            .locations-grid {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 1rem;
+            }
+            
+            .location-card {
+                min-height: 120px;
+                padding: 1rem;
+            }
+
+            .message-log-panel {
+                width: calc(100vw - 1.2rem);
+                bottom: 120px;
+            }
+        }
+
+        /* Game over modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 3px solid #00ffea;
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            color: #00ffea;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+
+        .modal-content p {
+            margin-bottom: 2rem;
+            font-size: 1.2rem;
+        }
+
+        .modal-btn {
+            background: linear-gradient(45deg, #00ffea, #0099cc);
+            color: #000;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .modal-btn:hover {
+            box-shadow: 0 0 20px #00ffea;
+        }
+
+        .modal-btn {
+            display: block;
+            margin: 1rem auto;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Action animation overlay */
+        .overlay {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+        }
+
+        .action-image {
+            max-width: 40%;
+            animation: slide-in 0.8s ease, shake 0.4s 0.8s ease-in-out, zoom-fade 1s 1.5s ease-in-out forwards;
+        }
+
+        @keyframes slide-in {
+            0% { transform: translateX(-100%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        @keyframes zoom-fade {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.75); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-background"></div>
+
+    <div class="header">
+        <div class="header-left">
+            <h1 class="title">Battle for Cyber City</h1>
+            <div class="role">DEFENDER</div>
+        </div>
+        <div class="header-center">
+            <div class="turn-counter">
+                <div class="turn-label">Turn</div>
+                <div class="turn-value"><span id="turnValue">1</span><span class="turn-total">/ 10</span></div>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="ready-btn" id="readyBtn" onclick="readyUp()">READY UP</button>
+            <button class="exit-btn" onclick="exitGame()">EXIT</button>
+        </div>
+    </div>
+
+    <!-- System notification banner -->
+    <div id="systemBanner" class="system-banner"></div>
+
+    <!-- Opponent turn blocker -->
+    <div id="turnBlocker" class="turn-blocker">
+        <div class="turn-blocker-content">
+            <h2>OPPONENT'S TURN</h2>
+            <p>Please wait while your opponent completes their move...</p>
+        </div>
+    </div>
+
+    <div class="turn-status" id="turnStatus">
+        <span id="turnStatusText">YOUR TURN</span>
+        <div class="turn-timer" id="turnTimer">
+            <span id="turnTimeRemaining">3:00</span>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <div class="actions-section">
+            <h2 class="actions-title">ACTIONS</h2>
+            <div class="actions-container">
+                <button class="action-btn" onclick="selectAction('Firewall')">
+                    <div class="action-name">Firewall</div>
+                    <div class="action-desc">Blocks unauthorized access and reduces risk at the chosen location.</div>
+                </button>
+                <button class="action-btn" onclick="selectAction('Virus Protection')">
+                    <div class="action-name">Virus Protection</div>
+                    <div class="action-desc">Deploys antivirus defenses to mitigate virus-based compromises.</div>
+                </button>
+                <button class="action-btn" onclick="selectAction('Intrusion Detection')">
+                    <div class="action-name">Intrusion Detection</div>
+                    <div class="action-desc">Detects and disrupts intrusions; can assist on compromised sites.</div>
+                </button>
+                <button class="action-btn" onclick="selectAction('User Training')">
+                    <div class="action-name">User Training</div>
+                    <div class="action-desc">Educates users to reduce social engineering and phishing success.</div>
+                </button>
+            </div>
+            <div class="action-controls">
+                <button class="confirm-btn" onclick="confirmAction()" id="confirmBtn">Confirm Action</button>
+                <button class="skip-btn" onclick="skipTurn()" id="skipBtn" style="display: none;">Skip Turn</button>
+            </div>
+        </div>
+
+        <div class="locations-section">
+            <h2 class="locations-title">LOCATIONS</h2>
+            <div class="locations-grid" id="locationsGrid">
+                <!-- Locations will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <div class="message-log-panel">
+        <div class="message-log-header">
+            <div class="message-log-title">Mission Feed</div>
+            <div class="message-log-meta" id="messageLogMeta">Initializing…</div>
+        </div>
+        <div class="message-log" id="messageLog">
+            <div class="message-entry">
+                <div class="message-time">--:--</div>
+                <div class="message-text">Ready up to begin the battle…</div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Instructions Modal -->
+    <div id="instructionsModal" class="instructions-modal">
+        <div class="instructions-content">
+            <div class="instructions-timer" id="instructionsTimer">1:00</div>
+            <h2>Welcome Defender!</h2>
+            <p>You are the <strong>Defender</strong>, and your mission is to protect the city from the Hacker's cyber attacks!</p>
+            <p>Use your defensive arsenal - Firewall, Virus Protection, Intrusion Detection, and User Training - to safeguard the city's infrastructure.</p>
+            <p>Your goal is to keep locations below 75% compromise (they remain protected) and prevent the Hacker from capturing them.</p>
+            <p>The game has 10 rounds with 2 turns each. <strong>You go first to set up defenses</strong> before the Hacker attacks!</p>
+            <p>Each location is worth 1 point, except Lackland (worth 2 points). Protect more locations than the Hacker compromises to win!</p>
+            <button class="modal-btn" onclick="closeInstructions()">I'M READY</button>
+        </div>
+    </div>
+
+
+    <!-- Action Animation Overlay -->
+    <div id="animation-overlay" class="overlay">
+        <img id="action-image" class="action-image" src="" alt="Action Animation">
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content">
+            <h2 id="gameOverTitle">Game Over</h2>
+            <p id="gameOverMessage">Final Score: Hacker 0 - Defender 0</p>
+            <button class="modal-btn" onclick="restartGame()">RESTART GAME</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let selectedAction = null;
+        let selectedLocation = null;
+        let isMyTurn = true; // Defender starts first
+        let isReady = false;
+        let gameStarted = false;
+
+        const locations = [
+            'Business', 'Hospital', 'Fire/Police', 'Industrial',
+            'University', 'Housing', 'Lackland', 'Traffic Lights'
+        ];
+
+        // Timer variables
+        let instructionsTimerInterval = null;
+        let instructionsTimeRemaining = 90; // 1 minute 30 seconds
+        let turnTimerInterval = null;
+        let turnTimeRemaining = 180; // 3 minutes
+
+        // Initialize the game
+        function initGame() {
+            socket.emit('login', 'Defender');
+            createLocationCards();
+        }
+
+        // Create location cards
+        function createLocationCards() {
+            const grid = document.getElementById('locationsGrid');
+            grid.innerHTML = '';
+
+            locations.forEach(location => {
+                const card = document.createElement('div');
+                card.className = 'location-card';
+                card.onclick = () => selectLocation(location);
+                card.innerHTML = `
+                    <div class="location-name">${location}</div>
+                    <div class="compromise-info" id="${location}-info">Compromised: 0%</div>
+                    <div class="compromise-bar">
+                        <div class="compromise-fill" id="${location}-bar"></div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Ready up function
+        function readyUp() {
+            if (isReady) return;
+            isReady = true;
+            
+            const readyBtn = document.getElementById('readyBtn');
+            if (readyBtn) {
+                readyBtn.textContent = 'READY!';
+                readyBtn.disabled = true;
+            }
+            
+            socket.emit('ready_up', { side: 'Defender' });
+            addMessage('Ready for battle!');
+        }
+
+
+        // Instructions functions
+        function showInstructions() {
+            document.getElementById('instructionsModal').style.display = 'flex';
+            startInstructionsTimer();
+        }
+
+        function closeInstructions() {
+            document.getElementById('instructionsModal').style.display = 'none';
+            if (instructionsTimerInterval) {
+                clearInterval(instructionsTimerInterval);
+                instructionsTimerInterval = null;
+            }
+            // Notify server that instructions were closed manually and player is ready
+            socket.emit('instructions_closed', { side: 'Defender' });
+            
+            // Mark as ready when closing instructions
+            if (!isReady) {
+                isReady = true;
+                addMessage('Ready for battle!');
+            }
+        }
+
+        function startInstructionsTimer() {
+            instructionsTimeRemaining = 90; // 1 minute 30 seconds
+            updateInstructionsTimer();
+            
+            instructionsTimerInterval = setInterval(() => {
+                instructionsTimeRemaining--;
+                updateInstructionsTimer();
+                
+                if (instructionsTimeRemaining <= 0) {
+                    clearInterval(instructionsTimerInterval);
+                    instructionsTimerInterval = null;
+                    socket.emit('instructions_timeout', { side: 'Defender' });
+                    window.location.href = '/';
+                }
+            }, 1000);
+        }
+
+        function updateInstructionsTimer() {
+            const timer = document.getElementById('instructionsTimer');
+            const minutes = Math.floor(instructionsTimeRemaining / 60);
+            const seconds = instructionsTimeRemaining % 60;
+            timer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            timer.classList.remove('warning', 'critical');
+            if (instructionsTimeRemaining <= 15) {
+                timer.classList.add('critical');
+            } else if (instructionsTimeRemaining <= 30) {
+                timer.classList.add('warning');
+            }
+        }
+
+
+        // Turn timer functions
+        function showTurnTimer() {
+            document.getElementById('turnTimer').style.display = 'block';
+            turnTimeRemaining = 180; // 3 minutes
+            updateTurnTimer();
+            
+            turnTimerInterval = setInterval(() => {
+                turnTimeRemaining--;
+                updateTurnTimer();
+                
+                if (turnTimeRemaining <= 0) {
+                    clearInterval(turnTimerInterval);
+                    turnTimerInterval = null;
+                    socket.emit('turn_timeout', { side: 'Defender' });
+                    // Redirect immediately - server will handle kicking both players
+                    window.location.href = '/';
+                }
+            }, 1000);
+        }
+
+        function updateTurnTimer() {
+            const minutes = Math.floor(turnTimeRemaining / 60);
+            const seconds = turnTimeRemaining % 60;
+            document.getElementById('turnTimeRemaining').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            const timer = document.getElementById('turnTimer');
+            timer.classList.remove('critical');
+            if (turnTimeRemaining <= 30) {
+                timer.classList.add('critical');
+            }
+        }
+
+        function hideTurnTimer() {
+            document.getElementById('turnTimer').style.display = 'none';
+            if (turnTimerInterval) {
+                clearInterval(turnTimerInterval);
+                turnTimerInterval = null;
+            }
+        }
+
+        // Game action functions
+        function selectAction(action) {
+            if (!gameStarted || !isMyTurn) {
+                showBanner('Wait for both players to click \'I\'M READY\' before taking actions.', 'error');
+                return;
+            }
+
+            selectedAction = action;
+            socket.emit('action', { side: 'Defender', action });
+
+            // Update UI
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.target.closest('.action-btn').classList.add('selected');
+
+            addMessage(`<strong>${action}</strong> ready. Choose a target.`, { variant: 'info' });
+        }
+
+        function selectLocation(location) {
+            if (!gameStarted || !isMyTurn) {
+                showBanner('Wait for both players to click \'I\'M READY\' before taking actions.', 'error');
+                return;
+            }
+
+            selectedLocation = location;
+            socket.emit('location', { side: 'Defender', location });
+
+            // Update UI
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.target.closest('.location-card').classList.add('selected');
+
+            addMessage(`Target locked: <strong>${location}</strong>.`, { variant: 'info' });
+        }
+
+        function playActionAnimation(action) {
+            const overlay = document.getElementById('animation-overlay');
+            const actionImage = document.getElementById('action-image');
+
+            // Set image source based on action type - keep spaces and lowercase
+            const imageName = action.toLowerCase();
+            actionImage.src = `defender_actions/defender_${imageName}.jpeg`;
+
+            // Display overlay and apply animation sequence
+            overlay.style.display = 'flex';
+
+            // Hide overlay after animation completes
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 2300); // Match total animation duration
+        }
+
+        function confirmAction() {
+            if (!gameStarted) {
+                showBanner('Wait for both players to click \'I\'M READY\' before taking actions.', 'error');
+                return;
+            }
+
+            if (!selectedAction || !selectedLocation || !isMyTurn) return;
+
+            socket.emit('confirm_action', { side: 'Defender' });
+            addMessage(`Executing <strong>${selectedAction}</strong> on <strong>${selectedLocation}</strong>...`, { variant: 'warning' });
+            
+            // Play the action animation
+            playActionAnimation(selectedAction);
+
+            resetSelections();
+        }
+
+        function skipTurn() {
+            if (!gameStarted || !isMyTurn) {
+                showBanner('Wait for both players to click \'I\'M READY\' before taking actions.', 'error');
+                return;
+            }
+            socket.emit('skip_turn', { side: 'Defender' });
+            addMessage('Turn skipped. Passing initiative.', { variant: 'warning' });
+            resetSelections();
+        }
+
+        function resetSelections() {
+            selectedAction = null;
+            selectedLocation = null;
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+        }
+
+        function formatTimestamp(date) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function addMessage(message, options = {}) {
+            const log = document.getElementById('messageLog');
+            if (!log) return;
+
+            const entry = document.createElement('div');
+            entry.className = 'message-entry';
+
+            const time = document.createElement('div');
+            time.className = 'message-time';
+            time.textContent = options.timestamp ? formatTimestamp(new Date(options.timestamp)) : formatTimestamp(new Date());
+
+            const text = document.createElement('div');
+            text.className = 'message-text';
+            text.innerHTML = message;
+
+            entry.appendChild(time);
+            entry.appendChild(text);
+            log.appendChild(entry);
+
+            // Update feed meta with total message count
+            const meta = document.getElementById('messageLogMeta');
+            if (meta) {
+                const totalMessages = log.querySelectorAll('.message-entry').length;
+                meta.textContent = `${totalMessages} update${totalMessages === 1 ? '' : 's'}`;
+            }
+
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function updateTurnStatus(turn) {
+            const statusElement = document.getElementById('turnStatusText');
+            const skipBtn = document.getElementById('skipBtn');
+            const blocker = document.getElementById('turnBlocker');
+            const headerEl = document.querySelector('.header');
+            const turnStatusBar = document.getElementById('turnStatus');
+
+            // Ensure blocker top aligns below header so EXIT remains accessible
+            if (headerEl && blocker) {
+                blocker.style.top = (headerEl.offsetTop + headerEl.offsetHeight) + 'px';
+            }
+            
+            isMyTurn = (turn === 'Defender');
+            
+            if (isMyTurn) {
+                statusElement.textContent = 'YOUR TURN';
+                turnStatusBar.classList.remove('waiting');
+                skipBtn.style.display = 'block';
+                showTurnTimer();
+                if (blocker) blocker.style.display = 'none';
+            } else {
+                statusElement.textContent = 'OPPONENT\'S TURN';
+                turnStatusBar.classList.add('waiting');
+                skipBtn.style.display = 'none';
+                hideTurnTimer();
+                if (blocker) blocker.style.display = 'flex';
+            }
+        }
+
+        function updateLocations(locationData) {
+            for (const [location, data] of Object.entries(locationData)) {
+                const infoElement = document.getElementById(`${location}-info`);
+                const barElement = document.getElementById(`${location}-bar`);
+                
+                if (infoElement && barElement) {
+                    const compromise = data.compromise || 0;
+                    infoElement.textContent = `Compromised: ${compromise}%`;
+                    barElement.style.width = `${compromise}%`;
+                    
+                    // Color coding
+                    if (compromise >= 75) {
+                        barElement.style.background = '#ff0000';
+                    } else if (compromise >= 50) {
+                        barElement.style.background = '#ff9800';
+                    } else {
+                        barElement.style.background = '#00ff00';
+                    }
+                }
+            }
+        }
+
+        function showGameOver(winner, hackerScore, defenderScore) {
+            const modal = document.getElementById('gameOverModal');
+            const title = document.getElementById('gameOverTitle');
+            const message = document.getElementById('gameOverMessage');
+            
+            if (winner === 'Defender') {
+                title.textContent = 'VICTORY!';
+                title.style.color = '#00ff00';
+            } else {
+                title.textContent = 'DEFEAT!';
+                title.style.color = '#ff0000';
+            }
+            
+            message.textContent = `Final Score: Hacker ${hackerScore} - Defender ${defenderScore}`;
+            // Hide any turn blocker/indicator and timers on game over
+            hideTurnTimer();
+            const blocker = document.getElementById('turnBlocker');
+            if (blocker) blocker.style.display = 'none';
+            const statusElement = document.getElementById('turnStatus');
+            if (statusElement) {
+                statusElement.classList.remove('waiting');
+                statusElement.textContent = 'GAME OVER';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function exitGame() {
+            if (confirm('Are you sure you want to exit the game?')) {
+                socket.emit('exit_game');
+                window.location.href = '/';
+            }
+        }
+
+        function restartGame() {
+            if (confirm('Restart the match? This will return both players to the lobby.')) {
+                socket.emit('exit_game');
+                window.location.href = '/';
+            }
+        }
+
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('defender_game_message', (message) => {
+            addMessage(message);
+        });
+
+        socket.on('turn', (turn) => {
+            updateTurnStatus(turn);
+        });
+
+        socket.on('turn_count_update', (turnNumber) => {
+            const turnValue = document.getElementById('turnValue');
+            if (turnValue) {
+                turnValue.textContent = turnNumber;
+            }
+        });
+
+        socket.on('round_update', (roundNumber) => {
+            addMessage(`Round ${roundNumber} underway.`);
+        });
+
+        socket.on('update_compromise', (locationData) => {
+            updateLocations(locationData);
+        });
+
+        socket.on('game_over', ({ winner, hackerScore, defenderScore }) => {
+            showGameOver(winner, hackerScore, defenderScore);
+        });
+
+        socket.on('hide_ready_buttons', () => {
+            const rb = document.getElementById('readyBtn');
+            if (rb) rb.classList.add('hidden');
+            showInstructions();
+        });
+
+        socket.on('redirect', ({ url }) => {
+            window.location.href = url;
+        });
+
+        socket.on('redirect_to_intro', () => {
+            window.location.href = '/';
+        });
+
+        socket.on('start_game', () => {
+            gameStarted = true;
+            const rb = document.getElementById('readyBtn');
+            if (rb) rb.classList.add('hidden');
+        });
+
+        // Handle countdown events from server
+        socket.on('ready_up_countdown', ({ timeRemaining }) => {
+            // Update ready-up countdown display if needed
+            console.log(`Ready-up countdown: ${timeRemaining} seconds remaining`);
+        });
+
+        socket.on('ready_up_countdown_start', ({ timeRemaining }) => {
+            console.log(`Ready-up countdown started: ${timeRemaining} seconds`);
+        });
+
+        socket.on('instructions_countdown', ({ timeRemaining }) => {
+            // Update instructions timer from server
+            instructionsTimeRemaining = timeRemaining;
+            updateInstructionsTimer();
+        });
+
+        socket.on('turn_countdown', ({ timeRemaining }) => {
+            // Update turn timer from server
+            turnTimeRemaining = timeRemaining;
+            updateTurnTimer();
+        });
+
+        socket.on('ready_up_timeout', ({ message }) => {
+            showBanner(message, 'error');
+            setTimeout(() => { window.location.href = '/'; }, 1000);
+        });
+
+        socket.on('instructions_timeout', ({ message }) => {
+            showBanner(message, 'error');
+            setTimeout(() => { window.location.href = '/'; }, 1000);
+        });
+
+        socket.on('turn_timeout', ({ message }) => {
+            showBanner(message, 'error');
+            setTimeout(() => { window.location.href = '/'; }, 1000);
+        });
+
+        // Integrated banner notifications
+        function showBanner(message, type = 'info') {
+            const banner = document.getElementById('systemBanner');
+            if (!banner) return;
+            banner.classList.remove('info', 'error');
+            banner.classList.add(type);
+            banner.textContent = message;
+            banner.style.display = 'block';
+            clearTimeout(window.__bannerTimeout);
+            window.__bannerTimeout = setTimeout(() => {
+                banner.style.display = 'none';
+            }, 4000);
+        }
+
+        // Keep the turn blocker aligned under the header
+        function alignTurnBlocker() {
+            const blocker = document.getElementById('turnBlocker');
+            const headerEl = document.querySelector('.header');
+            if (blocker && headerEl) {
+                blocker.style.top = (headerEl.offsetTop + headerEl.offsetHeight) + 'px';
+            }
+        }
+        window.addEventListener('resize', alignTurnBlocker);
+        window.addEventListener('load', alignTurnBlocker);
+
+        // On tab/window close, exit the game for all players
+        function attemptGroupExit() {
+            try { socket.emit('exit_game'); } catch (e) {}
+            try { fetch('/restart', { method: 'GET', keepalive: true }); } catch (e) {}
+        }
+        window.addEventListener('beforeunload', attemptGroupExit);
+        window.addEventListener('pagehide', attemptGroupExit);
+
+        // Initialize game when page loads
+        initGame();
+    </script>
+</body>
+</html>

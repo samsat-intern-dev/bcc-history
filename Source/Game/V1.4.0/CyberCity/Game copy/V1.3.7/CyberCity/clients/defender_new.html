@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberCity Battle - Defender</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #00ffea;
+            font-family: 'Orbitron', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background grid */
+        .grid-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 234, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 234, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+            z-index: -1;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background: rgba(0, 0, 0, 0.8);
+            border-bottom: 2px solid #007fff;
+        }
+
+        .title {
+            font-size: 2rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px #00ffea;
+        }
+
+        .role {
+            background: linear-gradient(45deg, #007fff, #0056b3);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .server-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.5rem;
+        }
+        
+        .turn-indicator {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+        }
+        
+        .server-ip {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-family: 'Share Tech Mono', monospace;
+            color: #00ffea;
+            border: 1px solid #00ffea;
+        }
+
+        .ready-up-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .ready-btn {
+            background: linear-gradient(45deg, #00ff00, #00aa00);
+            color: #000;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .ready-btn:hover {
+            box-shadow: 0 0 20px #00ff00;
+        }
+
+        .ready-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .exit-btn {
+            background: linear-gradient(45deg, #ff0040, #cc0033);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .exit-btn:hover {
+            box-shadow: 0 0 20px #ff0040;
+        }
+
+        /* Turn status bar */
+        .turn-status {
+            background: linear-gradient(45deg, #007fff, #0056b3);
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .turn-status.waiting {
+            background: linear-gradient(45deg, #666, #444);
+        }
+
+        /* Actions section */
+        .actions-section {
+            padding: 2rem;
+        }
+
+        .actions-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #00ffea;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .actions-container {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: linear-gradient(45deg, #007fff, #0056b3);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-btn:hover {
+            box-shadow: 0 0 30px #007fff;
+            transform: translateY(-2px);
+        }
+
+        .action-btn.selected {
+            box-shadow: 0 0 20px #ffff00, inset 0 0 20px rgba(255, 255, 0, 0.2);
+            border: 2px solid #ffff00;
+        }
+
+        .skip-btn {
+            background: linear-gradient(45deg, #ff9800, #e65100);
+            color: white;
+        }
+
+        .skip-btn:hover {
+            box-shadow: 0 0 30px #ff9800;
+        }
+
+        .confirm-btn {
+            background: linear-gradient(45deg, #00ffea, #0099cc);
+            color: #000;
+            font-size: 1.0rem;
+            padding: 1rem 2rem;
+            margin-left: auto;
+            display: block;
+            line-height: 1.2;
+            text-align: center;
+        }
+
+        .confirm-btn:hover {
+            box-shadow: 0 0 30px #00ffea;
+        }
+
+        /* Locations grid */
+        .locations-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            padding: 2rem;
+        }
+
+        .location-card {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #333;
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .location-card:hover {
+            border-color: #007fff;
+            box-shadow: 0 0 20px rgba(0, 127, 255, 0.3);
+            transform: translateY(-5px);
+        }
+
+        .location-card.selected {
+            border-color: #ffff00;
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+            background: rgba(255, 255, 0, 0.1);
+        }
+
+        .location-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #00ffea;
+        }
+
+        .compromise-info {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            color: #ccc;
+        }
+
+        .compromise-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .compromise-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        /* Message log */
+        .message-log {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 400px;
+            max-height: 200px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ffea;
+            border-radius: 10px;
+            padding: 1rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .message-log::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .message-log::-webkit-scrollbar-track {
+            background: #333;
+        }
+
+        .message-log::-webkit-scrollbar-thumb {
+            background: #00ffea;
+            border-radius: 4px;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1200px) {
+            .locations-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .locations-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .actions-container {
+                flex-direction: column;
+            }
+            
+            .message-log {
+                width: 300px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .locations-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Game over modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 3px solid #00ffea;
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            color: #00ffea;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+
+        .modal-content p {
+            margin-bottom: 2rem;
+            font-size: 1.2rem;
+        }
+
+        .modal-btn {
+            background: linear-gradient(45deg, #00ffea, #0099cc);
+            color: #000;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .modal-btn:hover {
+            box-shadow: 0 0 20px #00ffea;
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-background"></div>
+
+    <div class="header">
+        <h1 class="title">Battle for Cyber City</h1>
+        <div class="server-info">
+            <div class="turn-indicator" id="turnIndicator">Waiting for game to start...</div>
+            <div id="serverIP" class="server-ip">Server IP: Detecting...</div>
+        </div>
+        <button class="exit-btn" onclick="exitGame()">EXIT</button>
+    </div>
+
+    <div class="turn-status" id="turnStatus">YOUR TURN</div>
+
+    <div class="actions-section">
+        <h2 class="actions-title">ACTIONS</h2>
+        <div class="actions-container">
+            <button class="action-btn" onclick="selectAction('Firewall')">
+                Firewall
+            </button>
+            <button class="action-btn" onclick="selectAction('Virus Protection')">
+                Virus Protection
+            </button>
+            <button class="action-btn" onclick="selectAction('Intrusion Detection')">
+                Intrusion Detection
+            </button>
+            <button class="action-btn" onclick="selectAction('User Training')">
+                User Training
+            </button>
+            <button class="action-btn skip-btn" onclick="skipTurn()" style="display: none;" id="skipBtn">
+                Skip Turn
+            </button>
+        </div>
+        <button class="confirm-btn" onclick="confirmAction()" id="confirmBtn">CONFIRM<br>ACTION</button>
+    </div>
+
+    <div class="locations-grid" id="locationsGrid">
+        <!-- Locations will be populated by JavaScript -->
+    </div>
+
+    <div class="message-log" id="messageLog">
+        <div>Game messages will appear here...</div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content">
+            <h2 id="gameOverTitle">Game Over</h2>
+            <p id="gameOverMessage">Final Score: Hacker 0 - Defender 0</p>
+            <button class="modal-btn" onclick="restartGame()">RESTART GAME</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let selectedAction = null;
+        let selectedLocation = null;
+        let isMyTurn = true; // Defender starts first
+
+        const locations = [
+            'Business', 'Hospital', 'Fire/Police', 'Industrial',
+            'University', 'Housing', 'Lackland', 'Traffic Lights'
+        ];
+
+        // Initialize the game
+        function initGame() {
+            socket.emit('login', 'Defender');
+            createLocationCards();
+        }
+
+        // Create location cards
+        function createLocationCards() {
+            const grid = document.getElementById('locationsGrid');
+            grid.innerHTML = '';
+
+            locations.forEach(location => {
+                const card = document.createElement('div');
+                card.className = 'location-card';
+                card.onclick = () => selectLocation(location);
+                card.innerHTML = `
+                    <div class="location-name">${location}</div>
+                    <div class="compromise-info" id="${location}-info">Compromised: 0%</div>
+                    <div class="compromise-bar">
+                        <div class="compromise-fill" id="${location}-bar"></div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Select action
+        function selectAction(action) {
+            if (!isMyTurn) return;
+
+            selectedAction = action;
+            socket.emit('action', { side: 'Defender', action });
+
+            // Update UI
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+
+            addMessage(`Selected action: ${action}`);
+        }
+
+        // Select location
+        function selectLocation(location) {
+            if (!isMyTurn) return;
+
+            selectedLocation = location;
+            socket.emit('location', { side: 'Defender', location });
+
+            // Update UI
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.target.closest('.location-card').classList.add('selected');
+
+            addMessage(`Selected location: ${location}`);
+        }
+
+        // Confirm action
+        function confirmAction() {
+            if (!selectedAction || !selectedLocation || !isMyTurn) return;
+
+            socket.emit('confirm_action', { side: 'Defender' });
+            addMessage(`Executing ${selectedAction} on ${selectedLocation}...`);
+
+            // Reset selections
+            resetSelections();
+        }
+
+        // Skip turn
+        function skipTurn() {
+            if (!isMyTurn) return;
+            socket.emit('skip_turn', { side: 'Defender' });
+            addMessage('Skipped turn');
+            resetSelections();
+        }
+
+        // Reset selections
+        function resetSelections() {
+            selectedAction = null;
+            selectedLocation = null;
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+        }
+
+        // Add message to log
+        function addMessage(message) {
+            const log = document.getElementById('messageLog');
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            log.appendChild(messageDiv);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Update turn status
+        function updateTurnStatus(turn) {
+            const statusElement = document.getElementById('turnStatus');
+            const skipBtn = document.getElementById('skipBtn');
+            
+            isMyTurn = (turn === 'Defender');
+            
+            if (isMyTurn) {
+                statusElement.textContent = 'YOUR TURN';
+                statusElement.classList.remove('waiting');
+                skipBtn.style.display = 'block';
+            } else {
+                statusElement.textContent = 'OPPONENT\'S TURN';
+                statusElement.classList.add('waiting');
+                skipBtn.style.display = 'none';
+            }
+        }
+
+
+        // Update location compromise levels
+        function updateLocations(locationData) {
+            for (const [location, data] of Object.entries(locationData)) {
+                const infoElement = document.getElementById(`${location}-info`);
+                const barElement = document.getElementById(`${location}-bar`);
+                
+                if (infoElement && barElement) {
+                    const compromise = data.compromise || 0;
+                    infoElement.textContent = `Compromised: ${compromise}%`;
+                    barElement.style.width = `${compromise}%`;
+                    
+                    // Color coding
+                    if (compromise >= 75) {
+                        barElement.style.background = '#ff0000';
+                    } else if (compromise >= 50) {
+                        barElement.style.background = '#ff9800';
+                    } else {
+                        barElement.style.background = '#00ff00';
+                    }
+                }
+            }
+        }
+
+        // Show game over modal
+        function showGameOver(winner, hackerScore, defenderScore) {
+            const modal = document.getElementById('gameOverModal');
+            const title = document.getElementById('gameOverTitle');
+            const message = document.getElementById('gameOverMessage');
+            
+            if (winner === 'Defender') {
+                title.textContent = 'VICTORY!';
+                title.style.color = '#00ff00';
+            } else {
+                title.textContent = 'DEFEAT!';
+                title.style.color = '#ff0000';
+            }
+            
+            message.textContent = `Final Score: Hacker ${hackerScore} - Defender ${defenderScore}`;
+            modal.style.display = 'flex';
+        }
+
+        // Exit game
+        function exitGame() {
+            if (confirm('Are you sure you want to exit the game?')) {
+                socket.emit('exit_game');
+                window.location.href = '/';
+            }
+        }
+
+        // Restart game
+        function restartGame() {
+            socket.emit('restart_game', { clientType: 'Defender' });
+        }
+
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        // Handle server info (like LAN IP)
+        socket.on('server_info', (data) => {
+            if (data.lanIP) {
+                const ipElement = document.getElementById('serverIP');
+                if (ipElement) {
+                    ipElement.textContent = `Server IP: ${data.lanIP}`;
+                }
+                console.log('Server LAN IP:', data.lanIP);
+            }
+        });
+
+        socket.on('defender_game_message', (message) => {
+            addMessage(message);
+        });
+
+        socket.on('turn', (turn) => {
+            updateTurnStatus(turn);
+        });
+
+
+        socket.on('update_compromise', (locationData) => {
+            updateLocations(locationData);
+        });
+
+        socket.on('game_over', ({ winner, hackerScore, defenderScore }) => {
+            showGameOver(winner, hackerScore, defenderScore);
+        });
+
+        socket.on('redirect', ({ url }) => {
+            console.log('🔄 REDIRECT EVENT RECEIVED - URL:', url);
+            console.log('🔄 FORCING BROWSER REDIRECT NOW!');
+            // Force immediate redirect with multiple methods
+            window.location.replace(url);
+            window.location.href = url;
+            window.location.assign(url);
+            setTimeout(() => {
+                window.location.replace(url);
+            }, 100);
+        });
+
+        socket.on('restart', (data) => {
+            console.log('🔄 RESTART EVENT RECEIVED - URL:', data.redirectURL);
+            console.log('🔄 FORCING BROWSER REDIRECT NOW!');
+            // Force immediate redirect with multiple methods
+            window.location.replace(data.redirectURL);
+            window.location.href = data.redirectURL;
+            window.location.assign(data.redirectURL);
+            setTimeout(() => {
+                window.location.replace(data.redirectURL);
+            }, 100);
+        });
+
+        socket.on('game_restart', (data) => {
+            console.log('🔄 GAME_RESTART EVENT RECEIVED - IP:', data.serverIP);
+            const url = `http://${data.serverIP}:3000/`;
+            console.log('🔄 FORCING BROWSER REDIRECT TO:', url);
+            // Force immediate redirect with multiple methods
+            window.location.replace(url);
+            window.location.href = url;
+            window.location.assign(url);
+            setTimeout(() => {
+                window.location.replace(url);
+            }, 100);
+        });
+
+        socket.on('redirect_to_intro', () => {
+            window.location.href = '/';
+        });
+
+        // Initialize game when page loads
+        initGame();
+    </script>
+</body>
+</html>

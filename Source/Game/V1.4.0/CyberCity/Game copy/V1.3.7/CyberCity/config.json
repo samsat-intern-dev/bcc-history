@@ -1,0 +1,13 @@
+{
+  "server": {
+    "wlan_ip": "198.26.182.17",
+    "description": "Set the wlan_ip to your desired IP address for server routing. Leave empty to use auto-detection.",
+    "example": "192.168.1.100"
+  },
+  "game": {
+    "restart_routing": {
+      "enabled": true,
+      "description": "When enabled, restart functionality will route both players to the configured WLAN IP address"
+    }
+  }
+}
