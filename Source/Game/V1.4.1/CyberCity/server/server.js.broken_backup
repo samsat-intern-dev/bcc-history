@@ -1,0 +1,806 @@
+const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
+const axios = require('axios');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
+const INACTIVITY_TIMEOUT = 200000; //amount of milliseconds you want prior to timeout
+
+app.use(express.static(path.join(__dirname, '../clients')));
+
+// --- V1.3.7 UI Constants & State ---
+const SELECTION_TIMEOUT_DURATION = 30000; // 30 seconds
+const INITIAL_SELECTION_TIMEOUT_DURATION = 120000; // 2 minutes
+const INSTRUCTIONS_TIMEOUT_DURATION = 90000; // 90 seconds
+const INSTRUCTIONS_TIMEOUT_SECONDS = 90;
+const TURN_TIMEOUT_DURATION = 300000; // 5 minutes
+const TURN_TIMEOUT_SECONDS = 300;
+const MAX_ROUNDS = 10;
+
+let selectionTimeout = null;
+let selectionCountdownInterval = null;
+let isInitialSelection = true;
+let waitingPlayerId = null;
+
+let instructionsTimeout = null;
+let instructionsCountdown = null;
+let instructionsState = {
+    defender: { closed: false, timedOut: false },
+    hacker: { closed: false, timedOut: false }
+};
+
+let turnTimeout = null;
+let turnTimeoutCountdown = null;
+
+// --- V1.3.2 Game State ---
+let inactivityTimeout;
+let selectedAction = null;
+let selectedLocation = null;
+let currentTurn = 'Defender';
+let defenderReady = false;
+let hackerReady = false;
+let startMessageSent = false;
+let turnCounter = 0;
+let roundCounter = 1;
+let gameOver = false;
+let gameStarted = false;
+
+let gameState = {
+    defender: null,
+    hacker: null,
+    locationStatus: {
+        'Business': { compromise: 0, shield: 0 },
+        'Hospital': { compromise: 0, shield: 0 },
+        'Fire/Police': { compromise: 0, shield: 0 },
+        'Industrial': { compromise: 0, shield: 0 },
+        'University': { compromise: 0, shield: 0 },
+        'Housing': { compromise: 0, shield: 0 },
+        'Lackland': { compromise: 0, shield: 0 },
+        'Traffic Lights': { compromise: 0, shield: 0 }
+    },
+    defenderCooldown: { 'Intrusion Detection': 0 }, // Cooldown for Intrusion Detection only
+    budgets: {
+        'Defender': 100000,
+        'Hacker': 100000
+    }
+};
+
+let gameOverState = {
+    isGameOver: false,
+    winner: null,
+    hackerScore: 0,
+    defenderScore: 0,
+    restartClicked: {
+        defender: false,
+        hacker: false
+    }
+};
+
+let players = { hacker: null, defender: null };
+let restartRequests = { hacker: false, defender: false };
+
+const actionCosts = {
+    'Defender': {
+        'Firewall': 9000,
+        'Virus Protection': 11000,
+        'Intrusion Detection': 22000,
+        'User Training': 10000,
+    },
+    'Hacker': {
+        'Phishing': 7000,
+        'Virus': 8500,
+        'Malware': 17000,
+    }
+};
+
+io.on('connection', (socket) => {
+
+    // --- V1.3.7 UI Events ---
+    socket.on('start_initial_selection', () => {
+        // Always start/restart the timer to ensure clients see it running
+        console.log('Force starting initial selection timer');
+        startInitialSelectionTimeout();
+    });
+
+    socket.on('choose_side', (side) => {
+        const sideKey = side.toLowerCase();
+
+        if (players[sideKey]) {
+            socket.emit('side_already_taken', { side: side });
+            return;
+        }
+
+        players[sideKey] = socket.id;
+        socket.broadcast.emit('side_taken', { side: side, playerId: socket.id });
+
+        if (players.hacker && players.defender) {
+            clearSelectionTimeout();
+            // Instead of starting game immediately, we might want to show instructions
+            // But for V1.3.2 compatibility, let's stick to the flow:
+            // Choose Side -> Waiting -> Instructions (V1.3.7) -> Ready -> Start
+
+            // Notify both that opponent is found
+            const hackerSocket = io.sockets.sockets.get(players.hacker);
+            const defenderSocket = io.sockets.sockets.get(players.defender);
+            if (hackerSocket) hackerSocket.emit('opponent_found', 'hacker');
+            if (defenderSocket) defenderSocket.emit('opponent_found', 'defender');
+
+            // Start instructions timer
+            startInstructionsTimeout();
+        } else {
+            socket.emit('waiting_for_opponent');
+            waitingPlayerId = socket.id;
+            if ((players.hacker && !players.defender) || (!players.hacker && players.defender)) {
+                startSelectionTimeout();
+            }
+        }
+    });
+
+    socket.on('release_side', (side) => {
+        const sideKey = side.toLowerCase();
+        if (players[sideKey] === socket.id) {
+            players[sideKey] = null;
+            if (!players.hacker && !players.defender) {
+                clearSelectionTimeout();
+                waitingPlayerId = null;
+            }
+            io.emit('side_released', { side: side });
+        }
+    });
+
+    socket.on('instructions_closed', ({ side }) => {
+        const sideKey = side.toLowerCase();
+        console.log(`Instructions closed for ${side}`);
+        if (instructionsState[sideKey]) {
+            instructionsState[sideKey].closed = true;
+
+            if (side === 'Defender') defenderReady = true;
+            if (side === 'Hacker') hackerReady = true;
+
+            console.log(`State: Defender=${instructionsState.defender.closed}, Hacker=${instructionsState.hacker.closed}`);
+
+            if (instructionsState.defender.closed && instructionsState.hacker.closed) {
+                console.log('Both ready, starting game...');
+                clearInstructionsTimeout();
+                startGame();
+            }
+        }
+    });
+
+    socket.on('instructions_timeout', ({ side }) => {
+        // Reset game if instructions time out
+        clearInstructionsTimeout();
+        resetGameState();
+        io.emit('redirect_to_intro');
+    });
+
+    socket.on('turn_timeout', () => {
+        handleTurnTimeout();
+    });
+
+    socket.on('selection_timeout', () => {
+        resetSelectionState();
+    });
+
+    // --- V1.3.2 Game Events ---
+
+    socket.on('restart_game', ({ clientType }) => {
+        if (clientType === 'Hacker') restartRequests.hacker = true;
+        else if (clientType === 'Defender') restartRequests.defender = true;
+
+        if (restartRequests.hacker && restartRequests.defender) {
+            resetGameState();
+            io.emit('redirect', { url: 'http://localhost:3000' });
+            restartRequests = { hacker: false, defender: false };
+        }
+    });
+
+    function startGame() {
+        console.log('startGame called');
+        if (!startMessageSent) {
+            console.log('Emitting start events');
+            io.emit('defender_game_message', 'Both players are ready. The game begins now!');
+            io.emit('hacker_game_message', 'Both players are ready. The game begins now!');
+            io.emit('defender_game_message', 'You get the first two turns, please proceed.');
+            io.emit('hacker_game_message', 'Defender gets the first two turns. I will let you know when it is your turn.');
+
+            startMessageSent = true;
+            gameStarted = true;
+
+            io.emit('hide_ready_buttons');
+            io.emit('start_game', { round: roundCounter, turn: currentTurn });
+            io.emit('turn_update', { turn: currentTurn, round: roundCounter });
+            io.emit('game_started_confirmed'); // Explicit event to hide overlay
+
+            startTurnTimeout(); // V1.3.7 feature
+        } else {
+            console.log('Game already started (startMessageSent is true)');
+        }
+    }
+
+    function emitGameMessage(side, message) {
+        const lowerSide = side.toLowerCase();
+        if (gameState[lowerSide] && !gameState[lowerSide].disconnected) {
+            gameState[lowerSide].socket.emit(`${lowerSide}_game_message`, message);
+            console.log(`Sent to ${side}: ${message}`);
+        }
+    }
+
+    function checkReady(socket) {
+        if (!gameStarted) { // Modified to check gameStarted instead of just ready flags
+            socket.emit(`${socket.side.toLowerCase()}_game_message`, 'Game has not started yet.');
+            return false;
+        }
+        return true;
+    }
+
+    function checkAndEmitTurnCompletion(side) {
+        if (selectedAction && selectedLocation) {
+            let confirmMessage = `Are you sure you would like to apply ${selectedAction} to ${selectedLocation}? If yes, click Confirm Action.`;
+            emitGameMessage(side, confirmMessage);
+        }
+    }
+
+    function deductBudget(side, action) {
+        const cost = actionCosts[side][action] || 0;
+        if (gameState.budgets[side] >= cost) {
+            gameState.budgets[side] -= cost;
+            return true;
+        } else {
+            emitGameMessage(side.toLowerCase(), `Not enough budget to perform ${action}.`);
+            return false;
+        }
+    }
+
+    function applyActionResult(side, result) {
+        const { action, location, compromise, shield, message } = result;
+
+        if (message && (!action || !location)) {
+            emitGameMessage(side.toLowerCase(), message);
+            return;
+        }
+
+        if (!action || !location) {
+            emitGameMessage(side.toLowerCase(), 'Action or location not properly selected. Please try again.');
+            return;
+        }
+
+        if (side === 'Defender') {
+            if (action === 'Intrusion Detection') {
+                if (gameState.defenderCooldown['Intrusion Detection'] > 0) {
+                    emitGameMessage(side.toLowerCase(), `Intrusion Detection is on cooldown.`);
+                    return;
+                }
+                if (gameState.locationStatus[location].compromise >= 75) {
+                    gameState.defenderCooldown['Intrusion Detection'] = 2;
+                    emitGameMessage(side.toLowerCase(), 'Intrusion Detection is now on cooldown for 2 rounds.');
+                }
+            }
+            gameState.locationStatus[location].shield = (gameState.locationStatus[location].shield || 0) + (shield || 0);
+            gameState.locationStatus[location].compromise = Math.max(gameState.locationStatus[location].compromise + compromise, 0);
+        } else if (side === 'Hacker') {
+            const currentShield = gameState.locationStatus[location].shield || 0;
+            const effectiveCompromise = Math.max(compromise - currentShield, 0);
+            gameState.locationStatus[location].shield = Math.max(currentShield - compromise, 0);
+            gameState.locationStatus[location].compromise = Math.min(gameState.locationStatus[location].compromise + effectiveCompromise, 100);
+
+            if (gameState.locationStatus[location].compromise >= 75) {
+                emitGameMessage(side.toLowerCase(), `${location} is now compromised!`);
+            }
+        }
+
+        io.emit('update_compromise', gameState.locationStatus);
+        handleTurnCompletion(side);
+    }
+
+    socket.on('skip_turn', ({ side }) => {
+        resetInactivityTimer();
+        if (checkTurn(side, socket)) {
+            const budgetIncrease = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000;
+            gameState.budgets[side] += budgetIncrease;
+
+            emitGameMessage(side, `You skipped your turn. ${budgetIncrease} was added to your budget.`);
+
+            io.emit('budget_update', {
+                defenderBudget: gameState.budgets['Defender'],
+                hackerBudget: gameState.budgets['Hacker'],
+                message: `${side} skipped their turn. ${budgetIncrease} was added to their budget.`
+            });
+
+            handleTurnCompletion(side);
+        }
+    });
+
+    function calculateScoresAndEndGame() {
+        let hackerScore = 0;
+        let defenderScore = 0;
+
+        for (const [location, status] of Object.entries(gameState.locationStatus)) {
+            if (status && status.compromise !== undefined) {
+                const isCompromised = status.compromise >= 75;
+                const points = location === 'Lackland' ? 2 : 1;
+                if (isCompromised) hackerScore += points;
+                else defenderScore += points;
+            }
+        }
+
+        let winner = '';
+        if (hackerScore > defenderScore) winner = 'Hacker';
+        else if (defenderScore > hackerScore) winner = 'Defender';
+        else winner = 'No one';
+
+        gameOverState.isGameOver = true;
+        gameOverState.hackerScore = hackerScore;
+        gameOverState.defenderScore = defenderScore;
+        gameOverState.winner = winner;
+
+        io.emit('game_over', { winner, hackerScore, defenderScore });
+    }
+
+    socket.on('login', (side, ackCallback) => {
+        resetInactivityTimer();
+        socket.side = side;
+        let otherSide = side === 'Defender' ? 'Hacker' : 'Defender';
+        let currentState = gameState[side.toLowerCase()];
+
+        // V1.3.2 login logic adapted
+        if (currentState && currentState.disconnected) {
+            currentState.socket = socket;
+            currentState.disconnected = false;
+            socket.emit(`${side.toLowerCase()}_game_message`, 'Reconnected as ' + side);
+            if (ackCallback) ackCallback(`Reconnected as ${side}`);
+
+            if (gameStarted) {
+                socket.emit('hide_ready_buttons');
+                socket.emit('round_update', roundCounter);
+                socket.emit('turn', currentTurn);
+                socket.emit('player_turn_status', { isYourTurn: side === currentTurn });
+                socket.emit('budget_update', { defenderBudget: gameState.budgets.Defender, hackerBudget: gameState.budgets.Hacker });
+                socket.emit('update_shield_values', gameState.locationStatus);
+                socket.emit('update_compromise', gameState.locationStatus);
+            }
+        } else {
+            gameState[side.toLowerCase()] = { socket: socket, disconnected: false };
+            socket.emit(`${side.toLowerCase()}_game_message`, 'Logged in as ' + side);
+            if (ackCallback) ackCallback(`Logged in as ${side}`);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        // Handle selection disconnects (V1.3.7)
+        for (const [side, playerId] of Object.entries(players)) {
+            if (playerId === socket.id) {
+                players[side] = null;
+                socket.broadcast.emit('side_released', { side: side.charAt(0).toUpperCase() + side.slice(1) });
+                if (waitingPlayerId === socket.id) {
+                    clearSelectionTimeout();
+                    waitingPlayerId = null;
+                }
+                break;
+            }
+        }
+
+        // Handle game disconnects (V1.3.2)
+        if (socket.side) {
+            let currentSide = socket.side;
+            let currentState = gameState[currentSide.toLowerCase()];
+            if (currentState) {
+                currentState.disconnected = true;
+                emitGameMessage(currentSide, 'Disconnected');
+            }
+        }
+    });
+
+    // V1.3.2 ready_up handler removed - instructions_closed now handles ready state
+
+    socket.on('exit_game', () => {
+        resetGameState();
+        io.emit('game_ended', 'A player has exited the game.');
+        io.emit('redirect_to_intro');
+    });
+
+    socket.on('location', ({ side, location }) => {
+        resetInactivityTimer();
+        if (!checkReady(socket)) return;
+        if (!checkTurn(side, socket)) return;
+
+        selectedLocation = location;
+        if (!selectedAction) {
+            socket.emit(`${side.toLowerCase()}_game_message`, `What action would you like to apply to ${location}?`);
+        } else {
+            checkAndEmitTurnCompletion(side);
+        }
+    });
+
+    socket.on('action', ({ side, action }) => {
+        resetInactivityTimer();
+        if (!checkReady(socket)) return;
+        if (!checkTurn(side, socket)) return;
+
+        selectedAction = action;
+        if (!selectedLocation) {
+            socket.emit(`${side.toLowerCase()}_game_message`, `What location would you like to apply ${action} to?`);
+        } else {
+            checkAndEmitTurnCompletion(side);
+        }
+    });
+
+    socket.on('confirm_action', ({ side }) => {
+        resetInactivityTimer();
+        if (!checkReady(socket)) return;
+        if (!checkTurn(side, socket)) return;
+
+        if (selectedLocation && selectedAction) {
+            // Logic checks from V1.3.2
+            const currentCompromise = gameState.locationStatus[selectedLocation].compromise;
+            if (currentCompromise >= 100) {
+                emitGameMessage(side, `${selectedLocation} is lost.`);
+                return;
+            }
+            if (currentCompromise >= 75 && side === 'Defender' && selectedAction !== 'Intrusion Detection') {
+                emitGameMessage(side, `Only Intrusion Detection works here.`);
+                return;
+            }
+            if (side === 'Defender' && selectedAction === 'Intrusion Detection' && gameState.defenderCooldown['Intrusion Detection'] > 0) {
+                emitGameMessage(side, `Intrusion Detection is on cooldown.`);
+                return;
+            }
+
+            if (!deductBudget(side, selectedAction)) return;
+
+            const actionDetails = {
+                side,
+                action: selectedAction,
+                location: selectedLocation,
+                current_compromise: currentCompromise
+            };
+
+            axios.post('http://127.0.0.1:4000/process_action', actionDetails)
+                .then(response => {
+                    const result = response.data;
+                    applyActionResult(side, result);
+                    io.emit('budget_update', {
+                        defenderBudget: gameState.budgets['Defender'],
+                        hackerBudget: gameState.budgets['Hacker']
+                    });
+                    selectedAction = null;
+                    selectedLocation = null;
+                })
+                .catch(error => {
+                    console.error(error);
+                    emitGameMessage(side, 'Error processing action.');
+                });
+        } else {
+            emitGameMessage(side, 'Selection incomplete.');
+        }
+    });
+
+    let extraTurnFlag = false;
+
+    function handleTurnCompletion() {
+        if (gameOver) return;
+
+        clearTurnTimeout();
+
+        turnCounter++;
+        if (turnCounter % 2 === 0) {
+            roundCounter++;
+            if (roundCounter > 10) {
+                gameOver = true;
+                io.emit('game_message', 'Game over after 10 rounds.');
+                io.emit('game_over', 'The game has ended.');
+                calculateScoresAndEndGame();
+                return;
+            }
+        }
+
+        // Handle special consecutive turns for round 1 (Defender) and round 10 (Hacker)
+        if (roundCounter === 1 && currentTurn === 'Defender' && !extraTurnFlag) {
+            emitGameMessage('Defender', 'Go again. You have two consecutive turns for the first round.');
+            extraTurnFlag = true;
+            io.emit('turn', 'Defender');
+            emitGameMessage('Defender', 'Your turn.');
+            startTurnTimeout();
+        } else if (roundCounter === 10 && currentTurn === 'Hacker' && !extraTurnFlag) {
+            emitGameMessage('Hacker', 'Go again. This is your last turn before the game ends. Make it count!');
+            extraTurnFlag = true;
+            io.emit('turn', 'Hacker');
+            emitGameMessage('Hacker', 'Your turn.');
+            startTurnTimeout();
+        } else {
+            // Normal turn sequence
+            extraTurnFlag = false;
+            currentTurn = currentTurn === 'Defender' ? 'Hacker' : 'Defender';
+
+            // Check for cooldowns and emit appropriate messages
+            if (currentTurn === 'Defender' && gameState.defenderCooldown['Intrusion Detection'] > 0) {
+                gameState.defenderCooldown['Intrusion Detection']--;
+                if (gameState.defenderCooldown['Intrusion Detection'] === 1) {
+                    emitGameMessage('Defender', 'Intrusion Detection is on cooldown for 1 more round.');
+                } else if (gameState.defenderCooldown['Intrusion Detection'] === 0) {
+                    emitGameMessage('Defender', 'Intrusion Detection is available once again!');
+                }
+            }
+
+            // Emit turn messages for both players
+            emitGameMessage(currentTurn, 'Your turn.');
+            emitGameMessage(currentTurn === 'Defender' ? 'Hacker' : 'Defender', 'Your turn ended, please wait.');
+
+            // Emit turn and round updates
+            io.emit('turn', currentTurn);
+            io.emit('round_update', roundCounter);
+            startTurnTimeout();
+        }
+    }
+
+    function checkTurn(side, socket) {
+        if (gameOver) return false;
+        if (side !== currentTurn) {
+            emitGameMessage(side, 'Not your turn.');
+            return false;
+        }
+        const availableActions = actionCosts[side];
+        const canAffordAnyAction = Object.values(availableActions).some(cost => gameState.budgets[side] >= cost);
+
+        if (!canAffordAnyAction) {
+            emitGameMessage(side, 'Not enough budget. Skipping turn.');
+            autoSkipTurn(side);
+            return false;
+        }
+        return true;
+    }
+
+    function autoSkipTurn(side) {
+        const budgetIncrease = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000;
+        gameState.budgets[side] += budgetIncrease;
+        io.emit('budget_update', {
+            defenderBudget: gameState.budgets['Defender'],
+            hackerBudget: gameState.budgets['Hacker'],
+            message: `${side} skipped turn. +${budgetIncrease} budget.`
+        });
+        handleTurnCompletion(side);
+    }
+
+    socket.on('reconnect_request', () => {
+        if (gameOverState.isGameOver) {
+            socket.emit('game_over', {
+                winner: gameOverState.winner,
+                hackerScore: gameOverState.hackerScore,
+                defenderScore: gameOverState.defenderScore
+            });
+        } else {
+            socket.emit('send_full_state', {
+                defenderBudget: gameState.budgets.Defender,
+                hackerBudget: gameState.budgets.Hacker,
+                locationStatus: gameState.locationStatus,
+                roundCounter: roundCounter,
+                currentTurn: currentTurn,
+                isYourTurn: (socket.id === io.sockets.sockets.get(players[currentTurn.toLowerCase()])?.id)
+            });
+        }
+    });
+
+});
+
+// --- Helper Functions (V1.3.7) ---
+
+function startInitialSelectionTimeout() {
+    clearSelectionTimeout();
+    isInitialSelection = true;
+    let timeRemaining = INITIAL_SELECTION_TIMEOUT_DURATION / 1000;
+
+    selectionCountdownInterval = setInterval(() => {
+        timeRemaining--;
+        io.emit('selection_countdown', { timeRemaining });
+        if (timeRemaining <= 0) {
+            clearInterval(selectionCountdownInterval);
+            selectionCountdownInterval = null;
+        }
+    }, 1000);
+
+    selectionTimeout = setTimeout(() => {
+        resetSelectionState();
+    }, INITIAL_SELECTION_TIMEOUT_DURATION);
+}
+
+function startSelectionTimeout() {
+    clearSelectionTimeout();
+    isInitialSelection = false;
+    let timeRemaining = SELECTION_TIMEOUT_DURATION / 1000;
+
+    selectionCountdownInterval = setInterval(() => {
+        timeRemaining--;
+        io.emit('selection_countdown', { timeRemaining });
+        if (timeRemaining <= 0) {
+            clearInterval(selectionCountdownInterval);
+            selectionCountdownInterval = null;
+        }
+    }, 1000);
+
+    selectionTimeout = setTimeout(() => {
+        resetSelectionState();
+    }, SELECTION_TIMEOUT_DURATION);
+}
+
+function clearSelectionTimeout() {
+    if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+        selectionTimeout = null;
+    }
+    if (selectionCountdownInterval) {
+        clearInterval(selectionCountdownInterval);
+        selectionCountdownInterval = null;
+    }
+}
+
+function resetSelectionState() {
+    clearSelectionTimeout();
+    resetGameState();
+    io.emit('selection_timeout', { message: 'Selection timeout.' });
+    io.emit('redirect_to_intro');
+}
+
+function startInstructionsTimeout() {
+    clearInstructionsTimeout();
+    let timeRemaining = INSTRUCTIONS_TIMEOUT_SECONDS;
+
+    instructionsCountdown = setInterval(() => {
+        timeRemaining--;
+        io.emit('instructions_countdown', { timeRemaining });
+        if (timeRemaining <= 0) {
+            clearInterval(instructionsCountdown);
+            instructionsCountdown = null;
+        }
+    }, 1000);
+
+    instructionsTimeout = setTimeout(() => {
+        handleInstructionsTimeout();
+    }, INSTRUCTIONS_TIMEOUT_DURATION);
+}
+
+function clearInstructionsTimeout() {
+    if (instructionsTimeout) {
+        clearTimeout(instructionsTimeout);
+        instructionsTimeout = null;
+    }
+    if (instructionsCountdown) {
+        clearInterval(instructionsCountdown);
+        instructionsCountdown = null;
+    }
+}
+
+function handleInstructionsTimeout() {
+    clearInstructionsTimeout();
+    resetGameState();
+    io.emit('instructions_timeout', { message: 'Instructions timeout.' });
+    io.emit('redirect_to_intro');
+}
+
+function startTurnTimeout() {
+    clearTurnTimeout();
+    let timeRemaining = TURN_TIMEOUT_SECONDS;
+
+    turnTimeoutCountdown = setInterval(() => {
+        timeRemaining--;
+        const currentPlayerSocket = getCurrentPlayerSocket();
+        if (currentPlayerSocket) {
+            currentPlayerSocket.emit('turn_countdown', { timeRemaining });
+        }
+        if (timeRemaining <= 0) {
+            clearInterval(turnTimeoutCountdown);
+            turnTimeoutCountdown = null;
+        }
+    }, 1000);
+
+    turnTimeout = setTimeout(() => {
+        handleTurnTimeout();
+    }, TURN_TIMEOUT_DURATION);
+}
+
+function clearTurnTimeout() {
+    if (turnTimeout) {
+        clearTimeout(turnTimeout);
+        turnTimeout = null;
+    }
+    if (turnTimeoutCountdown) {
+        clearInterval(turnTimeoutCountdown);
+        turnTimeoutCountdown = null;
+    }
+}
+
+function handleTurnTimeout() {
+    clearTurnTimeout();
+    resetGameState();
+    io.emit('turn_timeout', {
+        timedOutPlayer: currentTurn,
+        message: `${currentTurn} took too long.`
+    });
+    io.emit('redirect_to_intro');
+}
+
+function getCurrentPlayerSocket() {
+    if (currentTurn === 'Defender' && players.defender) {
+        return io.sockets.sockets.get(players.defender);
+    } else if (currentTurn === 'Hacker' && players.hacker) {
+        return io.sockets.sockets.get(players.hacker);
+    }
+    return null;
+}
+
+function resetGameState() {
+    selectedAction = null;
+    selectedLocation = null;
+    currentTurn = 'Defender';
+    defenderReady = false;
+    hackerReady = false;
+    startMessageSent = false;
+    turnCounter = 0;
+    roundCounter = 1;
+    gameOver = false;
+    gameStarted = false;
+
+    // Reset instructions state
+    instructionsState = {
+        defender: { closed: false, timedOut: false },
+        hacker: { closed: false, timedOut: false }
+    };
+
+    resetInactivityTimer();
+
+    gameState = {
+        defender: null,
+        hacker: null,
+        locationStatus: {
+            'Business': { compromise: 0, shield: 0 },
+            'Hospital': { compromise: 0, shield: 0 },
+            'Fire/Police': { compromise: 0, shield: 0 },
+            'Industrial': { compromise: 0, shield: 0 },
+            'University': { compromise: 0, shield: 0 },
+            'Housing': { compromise: 0, shield: 0 },
+            'Lackland': { compromise: 0, shield: 0 },
+            'Traffic Lights': { compromise: 0, shield: 0 }
+        },
+        defenderCooldown: { 'Intrusion Detection': 0 },
+        budgets: {
+            'Defender': 100000,
+            'Hacker': 100000
+        }
+    };
+
+    players = { hacker: null, defender: null };
+    restartRequests = { hacker: false, defender: false };
+    instructionsState = {
+        defender: { closed: false, timedOut: false },
+        hacker: { closed: false, timedOut: false }
+    };
+
+    clearSelectionTimeout();
+    clearInstructionsTimeout();
+    clearTurnTimeout();
+
+    io.emit('game_reset');
+
+    gameOverState.isGameOver = false;
+    gameOverState.winner = null;
+    gameOverState.hackerScore = 0;
+    gameOverState.defenderScore = 0;
+    gameOverState.restartClicked = { defender: false, hacker: false };
+}
+
+function resetInactivityTimer() {
+    clearTimeout(inactivityTimeout);
+    inactivityTimeout = setTimeout(() => {
+        resetGameState();
+        io.emit('game_ended');
+        io.emit('redirect_to_intro');
+    }, INACTIVITY_TIMEOUT);
+}
+
+resetInactivityTimer();
+
+server.listen(3000, () => {
+    console.log('Server is running on port 3000');
+});

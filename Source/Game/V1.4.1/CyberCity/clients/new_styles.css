@@ -1,0 +1,200 @@
+/* New Header Layout */
+.header-new {
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.9);
+    padding: 1rem 2rem;
+    position: relative;
+    z-index: 3001;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    gap: 1rem;
+}
+
+.header-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.header-action-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: -10px;
+    /* Pull up slightly */
+}
+
+.header-notification-row {
+    display: flex;
+    justify-content: flex-end;
+    /* Align to right */
+    width: 100%;
+}
+
+.header-separator {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--text-color), transparent);
+    margin-top: 0.5rem;
+    opacity: 0.5;
+}
+
+/* Turn Status Bubble (Relocated) */
+.turn-status-bubble {
+    background: rgba(20, 20, 40, 0.9);
+    border: 1px solid #444;
+    border-radius: 30px;
+    padding: 0.5rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-family: var(--font-secondary);
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: white;
+    min-width: 300px;
+}
+
+.turn-status-bubble.your-turn {
+    border-color: #00ff00;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+}
+
+.turn-status-bubble.opponent-turn {
+    border-color: #ff4444;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+}
+
+.skip-btn-header {
+    background: linear-gradient(45deg, #ff9800, #e65100);
+    border: none;
+    padding: 0.3rem 0.8rem;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: white;
+    margin-left: auto;
+}
+
+/* Role Title (Top Center) */
+.role-title {
+    font-family: var(--font-main);
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 0.5rem 2rem;
+    border-radius: 30px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.role-title.defender {
+    color: var(--defender-primary);
+    text-shadow: 0 0 15px var(--defender-glow);
+    border-color: var(--defender-primary);
+}
+
+.role-title.hacker {
+    color: var(--hacker-primary);
+    text-shadow: 0 0 15px var(--hacker-glow);
+    border-color: var(--hacker-primary);
+}
+
+/* Confirm Action Button (Centered above terminal) */
+.confirm-btn-centered {
+    background: linear-gradient(180deg, #00ffea, #00aa99);
+    color: #000;
+    border: none;
+    padding: 1rem 3rem;
+    font-family: var(--font-main);
+    font-size: 1.5rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(0, 255, 234, 0.5);
+    transition: all 0.3s ease;
+    letter-spacing: 2px;
+    z-index: 4000;
+}
+
+.confirm-btn-centered:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 40px rgba(0, 255, 234, 0.8);
+}
+
+.confirm-btn-centered:active {
+    transform: scale(0.95);
+}
+
+/* Action Notification Area */
+.action-notification {
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid #00ffea;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    width: 900px;
+    max-width: 90vw;
+    height: 160px;
+    min-height: 160px;
+    max-height: 160px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    color: #00ffea;
+    box-shadow: inset 0 0 10px rgba(0, 255, 234, 0.2);
+    display: flex;
+    flex-direction: column-reverse;
+    /* Newest at bottom */
+    flex-shrink: 0;
+    flex-grow: 0;
+}
+
+/* Budget Bubble (Relocated) */
+.actions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(0, 255, 234, 0.3);
+    padding-bottom: 0.5rem;
+}
+
+.budget-bubble {
+    background: rgba(0, 200, 100, 0.2);
+    border: 1px solid #00ff88;
+    border-radius: 20px;
+    padding: 0.4rem 1rem;
+    font-family: 'Share Tech Mono', monospace;
+    color: #00ff88;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.budget-bubble::before {
+    content: '💰';
+}
+
+/* Hide old elements */
+.header,
+.turn-status,
+.confirm-btn {
+    display: none !important;
+}
+
+/* Adjust message log to fit in notification area */
+#messageLog {
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+#messageLog div {
+    margin-bottom: 2px;
+}
